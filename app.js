@@ -297,8 +297,29 @@ window.addEventListener('DOMContentLoaded', async function() {
 });
 
 /* ============================================================
-   オンライン状態
+   接続設定を保存
    ============================================================ */
+function saveSettings() {
+  var url = document.getElementById('settings-url').value.trim();
+  var key = document.getElementById('settings-key').value.trim();
+  var status = document.getElementById('settings-status');
+
+  if (!url || !key) {
+    status.textContent = '⚠️ URLとKEYの両方を入力してください';
+    status.style.color = '#C8762A';
+    return;
+  }
+
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+
+  status.textContent = '✅ 保存しました。接続中...';
+  status.style.color = '#2D6A4F';
+
+  setTimeout(function() { location.reload(); }, 1000);
+}
+
+
 function updateOnlineStatus() {
   var isOnline = navigator.onLine;
   var badge = document.getElementById('sync-badge');
@@ -325,6 +346,15 @@ function showScreen(id, addHistory) {
     state.screenHistory.push(state.currentScreen);
   }
   state.currentScreen = id;
+
+  if (id === 'settings') {
+    var urlEl = document.getElementById('settings-url');
+    var keyEl = document.getElementById('settings-key');
+    if (urlEl) urlEl.value = localStorage.getItem('sb_url') || '';
+    if (keyEl) keyEl.value = localStorage.getItem('sb_key') || '';
+    var st = document.getElementById('settings-status');
+    if (st) st.textContent = '';
+  }
 
   var next = document.getElementById('screen-' + id);
   next.classList.add('active');
