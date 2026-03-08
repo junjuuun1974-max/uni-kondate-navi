@@ -14,8 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* 工程一覧画面 */
-    .steps-overview-screen { display:flex; flex-direction:column; height:100%; }
+    /* ============ 工程一覧（全体像）画面 ============ */
     .steps-list { flex:1; overflow-y:auto; padding:16px; }
     .steps-list-item {
       display:flex; align-items:flex-start; gap:14px;
@@ -25,8 +24,7 @@
     }
     .steps-list-num {
       width:32px; height:32px; border-radius:10px;
-      background:#2D6A4F; color:#fff;
-      font-size:14px; font-weight:900;
+      background:#2D6A4F; color:#fff; font-size:14px; font-weight:900;
       display:flex; align-items:center; justify-content:center; flex-shrink:0;
     }
     .steps-list-icon { font-size:22px; flex-shrink:0; margin-top:2px; }
@@ -34,64 +32,106 @@
     .steps-list-desc { font-size:14px; font-weight:700; color:#1A2E23; line-height:1.5; }
     .steps-list-desc-en { font-size:11px; color:#6E8C75; margin-top:3px; line-height:1.4; }
     .steps-list-meta { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
-    .steps-list-tag {
-      font-size:10px; font-weight:700; padding:3px 8px;
-      border-radius:100px; background:#D8EDD4; color:#2D6A4F;
-    }
-    .steps-list-tag.timer { background:#FDF0E0; color:#C8762A; }
-    .steps-list-tag.steamcon { background:#EEF2FF; color:#5B6FA8; }
+    .steps-list-tag { font-size:10px; font-weight:700; padding:3px 8px; border-radius:100px; background:#D8EDD4; color:#2D6A4F; }
+    .steps-list-tag.timer   { background:#FDF0E0; color:#C8762A; }
+    .steps-list-tag.steamcon{ background:#EEF2FF; color:#5B6FA8; }
 
-    /* 以降の工程セクション */
-    .upcoming-steps-section {
-      display: none;
-      background: #F0F7F0;
-      border-top: 2px dashed #B7DDB7;
-      padding: 10px 14px 6px;
-    }
-    .upcoming-steps-label {
-      font-size: 10px; font-weight: 800; color: #52B788;
-      letter-spacing: 0.08em; margin-bottom: 6px;
-      text-transform: uppercase;
-    }
-    .upcoming-steps-list {
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .upcoming-step-item {
-      display: flex; align-items: center; gap: 8px;
-      background: #fff; border-radius: 8px;
-      padding: 7px 10px;
-      border-left: 3px solid #B7DDB7;
-      transform-origin: left center;
-      transition: opacity 0.2s;
-    }
-    .upcoming-step-num {
-      font-size: 9px; font-weight: 900; color: #52B788;
-      min-width: 42px; letter-spacing: 0.04em;
-    }
-    .upcoming-step-icon { font-size: 15px; flex-shrink: 0; }
-    .upcoming-step-body { flex: 1; min-width: 0; }
-    .upcoming-step-desc {
-      font-size: 11px; font-weight: 600; color: #3A5A46;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      line-height: 1.4;
-    }
-    .upcoming-step-tags { display: flex; gap: 4px; margin-top: 2px; flex-wrap: wrap; }
-    .upcoming-tag {
-      font-size: 9px; font-weight: 700; padding: 1px 5px;
-      border-radius: 100px; background: #EEF7EE; color: #2D6A4F;
-    }
-    .upcoming-step-more {
-      font-size: 10px; color: #8FAF96; text-align: center;
-      padding: 4px 0; font-weight: 600;
-    }
+    /* ============ ホームボタン（調理中） ============ */
+    .home-btn-cooking {
       width:40px; height:40px; border-radius:10px;
-      background:rgba(255,255,255,0.15); border:none;
-      font-size:18px; cursor:pointer;
-      display:flex; align-items:center; justify-content:center;
-      flex-shrink:0; color:#fff;
+      background:rgba(255,255,255,0.15); border:none; font-size:18px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff;
       transition:background 0.15s;
     }
     .home-btn-cooking:active { background:rgba(255,255,255,0.30); }
+
+    /* ============ 調理工程スクロールボディ ============ */
+    .step-scroll-body {
+      flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    }
+
+    /* ============ 現在工程ブロック ============ */
+    .current-step-block {
+      background:#fff;
+      padding:12px 16px 16px;
+      box-shadow:0 3px 12px rgba(45,106,79,0.15);
+      border-left:5px solid #2D6A4F;
+      margin-bottom:0;
+    }
+    .current-step-label {
+      font-size:10px; font-weight:900; letter-spacing:0.1em;
+      color:#2D6A4F; margin-bottom:10px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .current-step-label::after { content:''; flex:1; height:1.5px; background:#D8EDD4; }
+
+    /* ============ 以降の工程タイムライン（縦） ============ */
+    .upcoming-steps-block {
+      background:#F4FAF5;
+      padding:12px 16px 4px;
+      border-top:1px solid #D8EDD4;
+    }
+    .upcoming-label {
+      font-size:10px; font-weight:900; letter-spacing:0.1em;
+      color:#6E8C75; margin-bottom:10px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .upcoming-label::after { content:''; flex:1; height:1px; background:#C8E0C8; }
+
+    /* タイムラインアイテム（縦並び） */
+    .tl-item {
+      display:flex; gap:12px; align-items:flex-start;
+      position:relative; margin-bottom:6px;
+    }
+    /* 縦の接続線 */
+    .tl-item:not(:last-child) .tl-dot-wrap::after {
+      content:''; position:absolute;
+      left:15px; top:32px; width:2px; height:calc(100% - 24px);
+      background:linear-gradient(to bottom, #C8E0C8 60%, transparent);
+    }
+    .tl-dot-wrap {
+      position:relative; flex-shrink:0; width:32px;
+    }
+    .tl-dot {
+      width:32px; height:32px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:13px; font-weight:900;
+      border:2px solid #D0D0D0; background:#F5F5F5; color:#AAA;
+    }
+    .tl-dot.is-next {
+      background:#FFF8EC; border-color:#E09B3D; color:#C8762A;
+      box-shadow:0 0 0 3px rgba(224,155,61,0.2);
+    }
+    .tl-dot.is-future { background:#F0F0F0; border-color:#D8D8D8; color:#BBB; }
+
+    .tl-body {
+      flex:1; border-radius:10px; padding:8px 12px; margin-bottom:2px;
+      background:#EFEFEF;
+    }
+    .tl-body.is-next {
+      background:#FFF8EC; border:1.5px solid #F0D090;
+    }
+    .tl-body.is-future { background:#F5F5F5; border:1px solid #E8E8E8; }
+
+    .tl-step-label {
+      font-size:9px; font-weight:900; letter-spacing:0.06em; color:#AAA; margin-bottom:2px;
+    }
+    .tl-step-label.is-next { color:#C8762A; }
+    .tl-desc { font-size:13px; font-weight:700; color:#888; line-height:1.4; }
+    .tl-desc.is-next { color:#1A2E23; }
+    .tl-tags { display:flex; gap:5px; margin-top:4px; flex-wrap:wrap; }
+    .tl-tag { font-size:9px; font-weight:700; padding:2px 6px; border-radius:100px; background:#E0E0E0; color:#888; }
+    .tl-tag.timer   { background:#FDF0E0; color:#C8762A; }
+    .tl-tag.steamcon{ background:#EEF2FF; color:#5B6FA8; }
+
+    /* 最終工程ゴール表示 */
+    .tl-goal {
+      display:flex; gap:10px; align-items:center;
+      padding:10px 14px; background:#E8F5E9; border-radius:12px;
+      margin:8px 0 12px; border:1.5px solid #A5D6A7;
+    }
+    .tl-goal-icon { font-size:20px; }
+    .tl-goal-text { font-size:12px; font-weight:700; color:#2D6A4F; }
   </style>
 </head>
 <body>
@@ -367,72 +407,77 @@
       <span class="step-num-sep">/</span>
       <span class="step-num-total" id="step-total-num">1</span>
     </div>
-    <!-- ホームボタン -->
     <button class="home-btn-cooking" onclick="confirmGoHome()" title="ホームへ戻る">🏠</button>
   </div>
 
-  <div class="step-content" id="step-content">
+  <!-- スクロール可能エリア（現在工程＋以降の工程） -->
+  <div class="step-scroll-body" id="step-scroll-body">
 
-    <div class="step-row-top">
-      <div class="step-type-icon" id="step-type-icon">👨‍🍳</div>
-      <div class="step-photo-box" id="step-photo-box">
-        <div class="step-photo-empty">
-          <span>📷</span>
-          <span class="step-photo-empty-text">No Photo</span>
+    <!-- ▌現在の工程 -->
+    <div class="current-step-block">
+
+      <div class="current-step-label">▶ 現在の工程 / CURRENT STEP</div>
+
+      <div class="step-row-top">
+        <div class="step-type-icon" id="step-type-icon">👨‍🍳</div>
+        <div class="step-photo-box" id="step-photo-box">
+          <div class="step-photo-empty">
+            <span>📷</span>
+            <span class="step-photo-empty-text">No Photo</span>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="step-desc-card">
-      <div class="step-desc-main" id="step-desc-main"></div>
-      <div class="step-desc-en" id="step-desc-en"></div>
-    </div>
-
-    <div class="step-ing-section" id="step-ing-section">
-      <div class="step-section-label">🥦 使用材料 / Ingredients</div>
-      <div class="step-ing-grid" id="step-ing-grid"></div>
-    </div>
-
-    <div class="steamcon-panel" id="step-steamcon" style="display:none">
-      <div class="steamcon-header">
-        <span>🌡️</span>
-        <span class="steamcon-header-text">スチコン設定 / STEAM CONVECTION</span>
+      <div class="step-desc-card">
+        <div class="step-desc-main" id="step-desc-main"></div>
+        <div class="step-desc-en" id="step-desc-en"></div>
       </div>
-      <div class="steamcon-grid">
-        <div class="steamcon-item">
-          <div class="steamcon-item-icon">🌡️</div>
-          <div class="steamcon-item-val" id="sc-temp">—</div>
-          <div class="steamcon-item-key">℃</div>
+
+      <div class="step-ing-section" id="step-ing-section">
+        <div class="step-section-label">🥦 使用材料 / Ingredients</div>
+        <div class="step-ing-grid" id="step-ing-grid"></div>
+      </div>
+
+      <div class="steamcon-panel" id="step-steamcon" style="display:none">
+        <div class="steamcon-header">
+          <span>🌡️</span>
+          <span class="steamcon-header-text">スチコン設定 / STEAM CONVECTION</span>
         </div>
-        <div class="steamcon-item">
-          <div class="steamcon-item-icon" id="sc-mode-icon">⚙️</div>
-          <div class="steamcon-item-val" id="sc-mode-val">—</div>
-          <div class="steamcon-item-key">MODE</div>
-        </div>
-        <div class="steamcon-item">
-          <div class="steamcon-item-icon">⏱️</div>
-          <div class="steamcon-item-val" id="sc-timer-val">—</div>
-          <div class="steamcon-item-key">MIN</div>
+        <div class="steamcon-grid">
+          <div class="steamcon-item">
+            <div class="steamcon-item-icon">🌡️</div>
+            <div class="steamcon-item-val" id="sc-temp">—</div>
+            <div class="steamcon-item-key">℃</div>
+          </div>
+          <div class="steamcon-item">
+            <div class="steamcon-item-icon" id="sc-mode-icon">⚙️</div>
+            <div class="steamcon-item-val" id="sc-mode-val">—</div>
+            <div class="steamcon-item-key">MODE</div>
+          </div>
+          <div class="steamcon-item">
+            <div class="steamcon-item-icon">⏱️</div>
+            <div class="steamcon-item-val" id="sc-timer-val">—</div>
+            <div class="steamcon-item-key">MIN</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="timer-hint-row" id="timer-hint-row" style="display:none">
-      <span class="timer-hint-icon">⏱️</span>
-      <div>
-        <div class="timer-hint-label">タイマー / TIMER</div>
-        <div class="timer-hint-val" id="timer-hint-val">00:00</div>
+      <div class="timer-hint-row" id="timer-hint-row" style="display:none">
+        <span class="timer-hint-icon">⏱️</span>
+        <div>
+          <div class="timer-hint-label">タイマー / TIMER</div>
+          <div class="timer-hint-val" id="timer-hint-val">00:00</div>
+        </div>
+        <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
       </div>
-      <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
-    </div>
 
-  </div>
+    </div><!-- /current-step-block -->
 
-  <!-- 以降の工程プレビュー -->
-  <div class="upcoming-steps-section" id="upcoming-steps-section">
-    <div class="upcoming-steps-label">▼ 以降の工程 / UPCOMING STEPS</div>
-    <div class="upcoming-steps-list" id="upcoming-steps-list"></div>
-  </div>
+    <!-- ▌以降の工程タイムライン -->
+    <div class="upcoming-steps-block" id="upcoming-steps-block"></div>
+
+    <div style="height:90px"></div>
+  </div><!-- /step-scroll-body -->
 
   <div class="complete-btn-wrap">
     <button class="complete-btn" id="complete-btn" onclick="completeStep()">
