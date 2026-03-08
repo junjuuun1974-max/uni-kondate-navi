@@ -41,8 +41,49 @@
     .steps-list-tag.timer { background:#FDF0E0; color:#C8762A; }
     .steps-list-tag.steamcon { background:#EEF2FF; color:#5B6FA8; }
 
-    /* ホームボタン（調理中） */
-    .home-btn-cooking {
+    /* 以降の工程セクション */
+    .upcoming-steps-section {
+      display: none;
+      background: #F0F7F0;
+      border-top: 2px dashed #B7DDB7;
+      padding: 10px 14px 6px;
+    }
+    .upcoming-steps-label {
+      font-size: 10px; font-weight: 800; color: #52B788;
+      letter-spacing: 0.08em; margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .upcoming-steps-list {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .upcoming-step-item {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border-radius: 8px;
+      padding: 7px 10px;
+      border-left: 3px solid #B7DDB7;
+      transform-origin: left center;
+      transition: opacity 0.2s;
+    }
+    .upcoming-step-num {
+      font-size: 9px; font-weight: 900; color: #52B788;
+      min-width: 42px; letter-spacing: 0.04em;
+    }
+    .upcoming-step-icon { font-size: 15px; flex-shrink: 0; }
+    .upcoming-step-body { flex: 1; min-width: 0; }
+    .upcoming-step-desc {
+      font-size: 11px; font-weight: 600; color: #3A5A46;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.4;
+    }
+    .upcoming-step-tags { display: flex; gap: 4px; margin-top: 2px; flex-wrap: wrap; }
+    .upcoming-tag {
+      font-size: 9px; font-weight: 700; padding: 1px 5px;
+      border-radius: 100px; background: #EEF7EE; color: #2D6A4F;
+    }
+    .upcoming-step-more {
+      font-size: 10px; color: #8FAF96; text-align: center;
+      padding: 4px 0; font-weight: 600;
+    }
       width:40px; height:40px; border-radius:10px;
       background:rgba(255,255,255,0.15); border:none;
       font-size:18px; cursor:pointer;
@@ -385,6 +426,12 @@
       <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
     </div>
 
+  </div>
+
+  <!-- 以降の工程プレビュー -->
+  <div class="upcoming-steps-section" id="upcoming-steps-section">
+    <div class="upcoming-steps-label">▼ 以降の工程 / UPCOMING STEPS</div>
+    <div class="upcoming-steps-list" id="upcoming-steps-list"></div>
   </div>
 
   <div class="complete-btn-wrap">
