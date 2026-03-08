@@ -22,7 +22,84 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
 
-/* ============ ログイン画面 ============ */
+/* ============ 工程写真アップロード ============ */
+.step-photo-upload {
+  border:2px dashed var(--border2); border-radius:var(--radius-sm);
+  padding:12px; text-align:center; cursor:pointer;
+  transition:all 0.15s; background:var(--bg); position:relative;
+}
+.step-photo-upload:hover { border-color:var(--primary2); background:var(--primary-light); }
+.step-photo-upload.has-photo { border-style:solid; border-color:var(--primary2); padding:6px; background:var(--bg2); }
+.step-photo-upload img { width:100%; max-height:160px; object-fit:contain; border-radius:6px; display:block; }
+.step-photo-upload-label { font-size:11px; color:var(--muted); font-weight:700; display:block; margin-top:4px; }
+.step-photo-btns { display:flex; gap:6px; margin-top:6px; justify-content:center; flex-wrap:wrap; }
+.step-photo-btn {
+  flex:1; min-width:80px; padding:8px 6px;
+  border-radius:8px; border:1.5px solid var(--border2);
+  background:#fff; font-size:11px; font-weight:700; color:var(--text2);
+  cursor:pointer; transition:all 0.15s;
+}
+.step-photo-btn:hover { background:var(--primary-light); border-color:var(--primary3); }
+.step-photo-btn.danger { border-color:#FFCDD2; color:var(--danger); background:#fff; }
+.step-photo-btn.danger:hover { background:var(--danger-light); }
+.step-photo-url-input {
+  width:100%; margin-top:6px; padding:8px 10px;
+  border:1.5px solid var(--border2); border-radius:8px;
+  font-size:12px; outline:none; box-sizing:border-box;
+}
+
+/* ============ レスポンシブ（iPhone / iPad 対応） ============ */
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
+  /* サイドバーをトップバーに変換 */
+  .sidebar {
+    position: sticky; top: 0; height: auto; z-index: 100;
+    flex-direction: row; align-items: center;
+    padding: 0; overflow-x: auto; overflow-y: hidden;
+  }
+  .sidebar-logo { padding: 10px 14px; border-bottom: none; border-right: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+  .sidebar-logo-name { font-size: 14px; }
+  .sidebar-logo-sub, .sidebar-badge { display: none; }
+  .sidebar-nav { padding: 6px 8px; flex-direction: row; display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+  .sidebar-section-label { display: none; }
+  .nav-item { flex-direction: column; gap: 2px; padding: 8px 10px; font-size: 10px; min-width: 52px; text-align: center; white-space: nowrap; }
+  .nav-item-icon { width: auto; font-size: 18px; }
+  .nav-item-count { margin-left: 0; font-size: 9px; }
+  .sidebar-footer { display: none; }
+
+  /* メインコンテンツ */
+  .main { padding: 14px 12px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  /* テーブルをカード形式に */
+  .menu-table thead { display: none; }
+  .menu-table tbody tr { display: block; background: #fff; border-radius: 10px; margin-bottom: 10px; padding: 12px; box-shadow: var(--shadow); }
+  .menu-table td { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border: none; font-size: 12px; }
+  .menu-table td:before { content: attr(data-label); font-weight: 700; color: var(--muted); font-size: 10px; }
+
+  /* フォームグリッド */
+  .form-grid { grid-template-columns: 1fr; }
+  .step-full, .form-group { grid-column: 1 / -1; }
+
+  /* モーダル */
+  .modal { width: 96vw; max-height: 92vh; margin: 4vh auto; border-radius: 16px; }
+  .modal-body { padding: 14px; }
+  .modal-footer { padding: 12px 14px; flex-direction: column; gap: 8px; }
+  .modal-footer .btn { width: 100%; justify-content: center; }
+
+  /* カレンダー */
+  .calendar-grid { gap: 3px; }
+  .cal-day { width: 36px; height: 36px; font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .main { padding: 10px 8px; }
+  .modal { width: 100vw; border-radius: 16px 16px 0 0; position: fixed; bottom: 0; max-height: 95vh; margin: 0; }
+}
+
 #login-screen {
   position:fixed; inset:0; z-index:9999;
   background:linear-gradient(135deg,#1B4332 0%,#2D6A4F 60%,#40916C 100%);
@@ -522,9 +599,10 @@ async function sbDeleteWhere(t,col,val){
   var r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?'+col+'=eq.'+encodeURIComponent(val),{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
   if(!r.ok)throw new Error(await r.text());
 }
-async function uploadPhoto(file){
+async function uploadPhoto(file, folder){
+  folder = folder || 'menu-photos';
   var ext=file.name.split('.').pop().toLowerCase()||'jpg';
-  var name='menu_'+Date.now()+'.'+ext;
+  var name=(folder==='step-photos'?'step_':'menu_')+Date.now()+'.'+ext;
   var r=await fetch(SUPABASE_URL+'/storage/v1/object/menu-photos/'+name,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':file.type,'x-upsert':'true'},body:file});
   if(!r.ok){var e=await r.text();throw new Error('写真アップロード失敗: '+e);}
   return SUPABASE_URL+'/storage/v1/object/public/menu-photos/'+name;
@@ -711,8 +789,21 @@ function renderStepsEditor(){
           '<textarea class="form-textarea" oninput="stepList['+i+'].description_en=this.value">'+escHtml(step.description_en||'')+'</textarea></div>'+
         '<div class="form-group"><label class="form-label">タイマー（分）</label>'+
           '<input class="form-input" type="number" min="0" placeholder="なし" value="'+(step.timer_minutes||'')+'" oninput="stepList['+i+'].timer_minutes=parseFloat(this.value)||null"></div>'+
-        '<div class="form-group"><label class="form-label">工程写真URL</label>'+
-          '<input class="form-input" placeholder="https://..." value="'+escHtml(step.photo_url||'')+'" oninput="stepList['+i+'].photo_url=this.value"></div>'+
+        '<div class="form-group step-full"><label class="form-label">工程写真</label>'+
+          '<div class="step-photo-upload '+(step.photo_url?'has-photo':'')+'" id="step-photo-area-'+i+'" onclick="stepPhotoAreaClick(event,'+i+')">'+
+            (step.photo_url
+              ? '<img src="'+escHtml(step.photo_url)+'" onerror="this.parentElement.classList.remove(\'has-photo\');this.parentElement.innerHTML=\'<span class=step-photo-upload-label>📷 写真なし</span>\'">'
+              : '<span class="step-photo-upload-label">📷 写真なし</span>')+
+          '</div>'+
+          '<div class="step-photo-btns">'+
+            '<button class="step-photo-btn" onclick="document.getElementById(\'step-photo-file-'+i+'\').click()">📁 ファイル選択</button>'+
+            '<button class="step-photo-btn" onclick="document.getElementById(\'step-photo-cam-'+i+'\').click()">📷 カメラ撮影</button>'+
+            '<button class="step-photo-btn danger" onclick="clearStepPhoto('+i+')">🗑 削除</button>'+
+          '</div>'+
+          '<input type="file" id="step-photo-file-'+i+'" accept="image/*" style="display:none" onchange="handleStepPhotoFile(this,'+i+')">'+
+          '<input type="file" id="step-photo-cam-'+i+'" accept="image/*" capture="environment" style="display:none" onchange="handleStepPhotoFile(this,'+i+')">'+
+          '<input class="step-photo-url-input" placeholder="または写真URLを直接入力" value="'+escHtml(step.photo_url||'')+'" oninput="stepList['+i+'].photo_url=this.value;previewStepPhoto('+i+',this.value)">'+
+        '</div>'+
         '<div class="step-full">'+
           '<div class="steamcon-toggle">'+
             '<button class="toggle-switch '+(scOn?'on':'')+'" id="sc-toggle-'+i+'" onclick="toggleSteamcon('+i+')"></button>'+
@@ -741,6 +832,60 @@ function stepTypeOptions(c){
     .map(function(t){return '<option value="'+t[0]+'"'+(c===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('');
 }
 function toggleStepCard(i){var b=document.getElementById('step-body-'+i);if(b)b.style.display=b.style.display==='none'?'':'none';}
+
+/* 工程写真ウィジェット */
+var stepPhotoFiles = {}; /* index → File */
+
+function stepPhotoAreaClick(e, i) {
+  /* ボタン以外のエリアをクリックしたときはファイル選択 */
+  if (e.target.tagName !== 'BUTTON') {
+    document.getElementById('step-photo-file-' + i).click();
+  }
+}
+
+function handleStepPhotoFile(input, i) {
+  var file = input.files[0];
+  if (!file) return;
+  stepPhotoFiles[i] = file;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var area = document.getElementById('step-photo-area-' + i);
+    if (area) {
+      area.classList.add('has-photo');
+      area.innerHTML = '<img src="' + e.target.result + '">';
+    }
+  };
+  reader.readAsDataURL(file);
+  /* URLフィールドはクリア（アップロード後に更新される） */
+  var urlInput = input.closest('.form-group, .step-full') && input.parentElement.querySelector('.step-photo-url-input');
+  if (!urlInput) {
+    /* fallback: find by sibling traversal */
+    var allInputs = document.querySelectorAll('.step-photo-url-input');
+    if (allInputs[i]) allInputs[i].value = '';
+  }
+}
+
+function previewStepPhoto(i, url) {
+  var area = document.getElementById('step-photo-area-' + i);
+  if (!area) return;
+  if (url) {
+    area.classList.add('has-photo');
+    area.innerHTML = '<img src="' + escHtml(url) + '" onerror="this.parentElement.classList.remove(\'has-photo\');this.parentElement.innerHTML=\'<span class=step-photo-upload-label>❌ 読み込みエラー</span>\'">';
+  } else {
+    area.classList.remove('has-photo');
+    area.innerHTML = '<span class="step-photo-upload-label">📷 写真なし</span>';
+  }
+}
+
+function clearStepPhoto(i) {
+  stepList[i].photo_url = '';
+  delete stepPhotoFiles[i];
+  var area = document.getElementById('step-photo-area-' + i);
+  if (area) { area.classList.remove('has-photo'); area.innerHTML = '<span class="step-photo-upload-label">📷 写真なし</span>'; }
+  var allInputs = document.querySelectorAll('.step-photo-url-input');
+  if (allInputs[i]) allInputs[i].value = '';
+}
+
 function toggleSteamcon(i){
   var isOn=!(stepList[i]._sc_enabled||stepList[i].sc_mode);
   stepList[i]._sc_enabled=isOn;
@@ -773,7 +918,16 @@ async function saveMenu(){
     else{await sbInsert('menus',data);}
     var vi=ingList.filter(function(x){return x.name.trim();});
     for(var i=0;i<vi.length;i++)await sbInsert('ingredients',{id:id+'_I'+String(i+1).padStart(3,'0'),menu_id:id,name:vi[i].name,name_en:vi[i].name_en||null,amount:vi[i].amount||0,unit:vi[i].unit||'g',sort_order:i});
-    for(var j=0;j<stepList.length;j++){var s=stepList[j],sc=s._sc_enabled?s.sc_mode:(s.sc_mode||null);await sbInsert('steps',{id:id+'_S'+String(j+1).padStart(3,'0'),menu_id:id,step_number:j+1,step_type:s.step_type||'default',description:s.description||'',description_en:s.description_en||null,photo_url:s.photo_url||null,timer_minutes:s.timer_minutes||null,sc_mode:sc,sc_mode_label:sc?(s.sc_mode_label||sc):null,sc_temperature:sc?(s.sc_temperature||null):null,sc_timer_minutes:sc?(s.sc_timer_minutes||null):null});}
+    for(var j=0;j<stepList.length;j++){
+      var s=stepList[j],sc=s._sc_enabled?s.sc_mode:(s.sc_mode||null);
+      var stepPhotoUrl = s.photo_url || null;
+      /* 工程写真ファイルがあればアップロード */
+      if (stepPhotoFiles[j]) {
+        try { stepPhotoUrl = await uploadPhoto(stepPhotoFiles[j], 'step-photos'); } catch(e) { /* URL維持 */ }
+      }
+      await sbInsert('steps',{id:id+'_S'+String(j+1).padStart(3,'0'),menu_id:id,step_number:j+1,step_type:s.step_type||'default',description:s.description||'',description_en:s.description_en||null,photo_url:stepPhotoUrl,timer_minutes:s.timer_minutes||null,sc_mode:sc,sc_mode_label:sc?(s.sc_mode_label||sc):null,sc_temperature:sc?(s.sc_temperature||null):null,sc_timer_minutes:sc?(s.sc_timer_minutes||null):null});
+    }
+    stepPhotoFiles = {}; /* 保存後クリア */
     toast((editingMenuId?'更新':'登録')+'しました: '+name+' ✅');
     closeMenuModal(); await loadDashboard();
   }catch(e){toast('保存失敗: '+e.message,'error');}
