@@ -48,103 +48,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   font-size:12px; outline:none; box-sizing:border-box;
 }
 
-/* ============ レスポンシブ（iPhone / iPad 対応） ============ */
-@media (max-width: 768px) {
-  /* レイアウト：縦並びに変更 */
-  .layout {
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 100vh;
-  }
-
-  /* サイドバー → 横スクロールのタブバー */
-  .sidebar {
-    position: sticky !important;
-    top: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    flex-direction: row !important;
-    flex-shrink: 0;
-    z-index: 100;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch;
-  }
-  .sidebar-logo {
-    padding: 8px 12px !important;
-    border-bottom: none !important;
-    border-right: 1px solid rgba(255,255,255,0.15);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-  .sidebar-logo-leaf { font-size: 20px; }
-  .sidebar-logo-name { font-size: 12px !important; }
-  .sidebar-logo-sub, .sidebar-badge { display: none !important; }
-  .sidebar-nav {
-    padding: 4px 6px !important;
-    flex-direction: row !important;
-    display: flex !important;
-    gap: 2px;
-    flex: 1;
-    overflow-x: auto;
-    align-items: center;
-  }
-  .sidebar-section-label { display: none !important; }
-  .nav-item {
-    flex-direction: column !important;
-    gap: 2px !important;
-    padding: 7px 10px !important;
-    font-size: 9px !important;
-    min-width: 54px;
-    text-align: center;
-    white-space: nowrap;
-    border-radius: 8px;
-  }
-  .nav-item-icon { width: auto !important; font-size: 20px !important; }
-  .nav-item-count { margin-left: 0 !important; font-size: 9px !important; }
-  .sidebar-footer { display: none !important; }
-
-  /* メインコンテンツ */
-  .main { padding: 12px 10px !important; flex: 1; }
-  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
-  .page-title { font-size: 20px !important; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-  .stat-val { font-size: 28px !important; }
-
-  /* テーブルをカード形式に */
-  .table-toolbar { flex-wrap: wrap; gap: 8px; padding: 10px !important; }
-  .table-card { overflow-x: auto; }
-  table { min-width: 100%; }
-  th, td { padding: 10px 10px !important; font-size: 12px !important; }
-
-  /* フォームグリッド */
-  .form-grid { grid-template-columns: 1fr !important; }
-
-  /* モーダル：画面下から出るシート形式 */
-  .modal-overlay {
-    align-items: flex-end !important;
-    padding: 0 !important;
-  }
-  .modal {
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: 92vh !important;
-    border-radius: 20px 20px 0 0 !important;
-    margin: 0 !important;
-  }
-  .modal-body { padding: 12px !important; }
-  .modal-footer {
-    padding: 12px !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-  }
-  .modal-footer .btn { width: 100% !important; justify-content: center !important; }
-
-  /* カレンダー */
-  .calendar-grid { gap: 3px !important; }
-  .cal-day { width: 34px !important; height: 34px !important; font-size: 11px !important; }
-}
 
 #login-screen {
   position:fixed; inset:0; z-index:9999;
@@ -334,6 +237,31 @@ tr:hover td{background:var(--bg);}
 .config-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:26px;box-shadow:var(--shadow);max-width:560px;}
 .config-card h3{font-size:16px;font-weight:700;margin-bottom:16px;}
 .config-info{background:var(--primary-light);border-radius:var(--radius-sm);padding:12px 14px;margin-top:16px;font-size:12px;color:var(--primary);line-height:1.7;}
+/* ============ レスポンシブ（iPhone / iPad 対応） ============ */
+@media screen and (max-width: 768px) {
+  .layout { display: flex !important; flex-direction: column !important; }
+  .sidebar { position: sticky !important; top: 0 !important; height: auto !important; min-height: 0 !important; flex-direction: row !important; overflow-x: auto !important; overflow-y: hidden !important; z-index: 100 !important; }
+  .sidebar-logo { padding: 8px 12px !important; border-bottom: none !important; border-right: 1px solid rgba(255,255,255,0.15) !important; flex-shrink: 0 !important; }
+  .sidebar-logo-name { font-size: 12px !important; }
+  .sidebar-logo-sub, .sidebar-badge { display: none !important; }
+  .sidebar-nav { padding: 4px 6px !important; flex-direction: row !important; display: flex !important; flex: 1 !important; overflow-x: auto !important; align-items: center !important; }
+  .sidebar-section-label { display: none !important; }
+  .nav-item { flex-direction: column !important; gap: 2px !important; padding: 8px 12px !important; font-size: 10px !important; min-width: 56px !important; text-align: center !important; white-space: nowrap !important; }
+  .nav-item-icon { width: auto !important; font-size: 20px !important; }
+  .nav-item-count { margin-left: 0 !important; }
+  .sidebar-footer { display: none !important; }
+  .main { padding: 12px 10px !important; flex: 1 !important; }
+  .page-header { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+  .page-title { font-size: 20px !important; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .modal { width: 100% !important; max-width: 100% !important; border-radius: 20px 20px 0 0 !important; margin: 0 !important; max-height: 92vh !important; }
+  .modal-body { padding: 12px !important; }
+  .modal-footer { padding: 12px !important; flex-direction: column !important; gap: 8px !important; }
+  .modal-footer .btn { width: 100% !important; justify-content: center !important; }
+  .cal-day { width: 34px !important; height: 34px !important; font-size: 11px !important; }
+}
 </style>
 </head>
 <body>
@@ -1015,6 +943,27 @@ function esc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 window.addEventListener('DOMContentLoaded',loadConfig);
+
+/* モバイルレイアウト強制適用 */
+(function applyMobileLayout() {
+  function fix() {
+    if (window.innerWidth <= 768) {
+      var layout = document.querySelector('.layout');
+      var sidebar = document.querySelector('.sidebar');
+      var nav = document.querySelector('.sidebar-nav');
+      if (layout) { layout.style.cssText = 'display:flex!important;flex-direction:column!important;'; }
+      if (sidebar) { sidebar.style.cssText = 'position:sticky!important;top:0!important;height:auto!important;flex-direction:row!important;overflow-x:auto!important;overflow-y:hidden!important;z-index:100!important;'; }
+      if (nav) { nav.style.cssText = 'flex-direction:row!important;display:flex!important;flex:1!important;overflow-x:auto!important;padding:4px 6px!important;align-items:center!important;'; }
+      document.querySelectorAll('.sidebar-section-label,.sidebar-footer,.sidebar-logo-sub,.sidebar-badge').forEach(function(el){el.style.display='none';});
+      document.querySelectorAll('.nav-item').forEach(function(el){el.style.cssText='flex-direction:column!important;gap:2px!important;padding:8px 12px!important;font-size:10px!important;min-width:56px!important;text-align:center!important;white-space:nowrap!important;';});
+    }
+  }
+  document.addEventListener('DOMContentLoaded', fix);
+  window.addEventListener('resize', fix);
+  setTimeout(fix, 100);
+  setTimeout(fix, 500);
+})();
+
 </script>
 
 <script>
