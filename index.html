@@ -14,6 +14,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
+    /* ============ 設定ボタン ============ */
+    .settings-open-btn {
+      margin: 8px auto 0; display: block;
+      background: none; border: 1.5px solid #C8E6C0;
+      border-radius: 100px; padding: 8px 20px;
+      font-size: 12px; font-weight: 700; color: #52B788;
+      cursor: pointer;
+    }
+    .settings-open-btn:active { background: #EAF4EC; }
+
     /* ============ 工程一覧（全体像）画面 ============ */
     .steps-list { flex:1; overflow-y:auto; padding:16px; }
     .steps-list-item {
@@ -221,6 +231,65 @@
     </div>
 
     <div class="home-sync-info" id="home-sync-info">— / —</div>
+
+    <!-- 設定ボタン -->
+    <button class="settings-open-btn" onclick="showScreen('settings')">
+      ⚙️ Supabase接続設定
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     S00: 接続設定画面
+     ============================================================ -->
+<div class="screen" id="screen-settings">
+  <div class="header" style="background:linear-gradient(135deg,#2D6A4F,#40916C)">
+    <button class="back-btn" style="color:#fff" onclick="goBack()">←</button>
+    <div class="header-titles" style="color:#fff">
+      <div class="header-title">接続設定</div>
+      <div class="header-sub">SUPABASE CONNECTION</div>
+    </div>
+    <div style="width:40px"></div>
+  </div>
+  <div class="scroll-body" style="padding:20px">
+    <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(45,106,79,0.1)">
+      <div style="font-size:13px;font-weight:700;color:#2D6A4F;margin-bottom:16px">
+        🔗 Supabase接続情報を入力してください
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:800;color:#6E8C75;display:block;margin-bottom:6px">
+          PROJECT URL
+        </label>
+        <input id="settings-url" type="url"
+          style="width:100%;box-sizing:border-box;padding:12px;border:2px solid #D8EDD4;border-radius:10px;font-size:13px;outline:none"
+          placeholder="https://xxxx.supabase.co"
+          value="">
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="font-size:11px;font-weight:800;color:#6E8C75;display:block;margin-bottom:6px">
+          PUBLISHABLE KEY
+        </label>
+        <input id="settings-key" type="text"
+          style="width:100%;box-sizing:border-box;padding:12px;border:2px solid #D8EDD4;border-radius:10px;font-size:13px;outline:none"
+          placeholder="sb_publishable_..."
+          value="">
+      </div>
+
+      <button onclick="saveSettings()"
+        style="width:100%;padding:16px;background:#2D6A4F;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer">
+        💾 保存して接続する
+      </button>
+
+      <div id="settings-status" style="margin-top:12px;text-align:center;font-size:12px;color:#6E8C75"></div>
+    </div>
+
+    <div style="margin-top:16px;background:#FFF9EE;border-radius:12px;padding:14px;font-size:11px;color:#8A6830;line-height:1.7">
+      <strong>📋 入力する値：</strong><br>
+      URL: <code>https://lxgtwkusebysuvylatfj.supabase.co</code><br>
+      KEY: <code>sb_publishable_JmRDZRxM84Q70C9ArKukbw_yZHg-d2-</code>
+    </div>
   </div>
 </div>
 
