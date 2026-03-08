@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<!-- v20260308-3 -->
 <title>Uni献立ナビ 管理画面</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
 <style>
@@ -305,6 +309,20 @@ tr:hover td{background:var(--bg);}
     <div class="modal-footer">
       <button class="btn btn-primary btn-lg" onclick="saveConfig()">💾 保存して接続</button>
     </div>
+  </div>
+</div>
+
+<!-- モバイル用上部ナビ（iPhone/iPad専用） -->
+<div id="mobile-topbar" style="display:none;position:sticky;top:0;z-index:200;background:linear-gradient(90deg,#1B4332,#2D6A4F);padding:0;flex-direction:row;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+  <div style="padding:10px 14px;flex-shrink:0;border-right:1px solid rgba(255,255,255,0.15);display:flex;align-items:center;gap:8px;">
+    <span style="font-size:18px">🌿</span>
+    <span style="font-family:serif;font-size:13px;font-weight:700;color:#fff;">Uni献立ナビ</span>
+  </div>
+  <div style="display:flex;flex:1;padding:4px 8px;gap:4px;overflow-x:auto;">
+    <button onclick="showPage('dashboard',this);setMobileActive(this)" class="mobile-nav-btn mobile-nav-active" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border:none;background:rgba(255,255,255,0.18);border-radius:8px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;"><span style="font-size:18px">📊</span>ダッシュ</button>
+    <button onclick="showPage('menus',this);setMobileActive(this)" class="mobile-nav-btn" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border:none;background:none;border-radius:8px;color:rgba(255,255,255,0.7);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;"><span style="font-size:18px">🍽️</span>メニュー</button>
+    <button onclick="showPage('settings',this);setMobileActive(this)" class="mobile-nav-btn" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border:none;background:none;border-radius:8px;color:rgba(255,255,255,0.7);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;"><span style="font-size:18px">⚙️</span>設定</button>
+    <button onclick="openMenuModal(null)" style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border:none;background:rgba(82,183,136,0.4);border-radius:8px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:auto;"><span style="font-size:18px">➕</span>新規登録</button>
   </div>
 </div>
 
@@ -972,23 +990,32 @@ function doLogin() {
 
 /* モバイルレイアウト強制適用 */
 function fixMobileLayout() {
-  if (window.innerWidth > 768) return;
-  var layout = document.querySelector('.layout');
-  var sidebar = document.querySelector('.sidebar');
-  var nav = document.querySelector('.sidebar-nav');
-  var footer = document.querySelector('.sidebar-footer');
-  if (layout) { layout.style.cssText = 'display:flex!important;flex-direction:column!important;min-height:100vh;'; }
-  if (sidebar) { sidebar.style.cssText = 'position:sticky!important;top:0!important;height:auto!important;min-height:0!important;flex-direction:row!important;overflow-x:auto!important;overflow-y:hidden!important;z-index:100!important;background:linear-gradient(180deg,#2D6A4F,#1B4332);'; }
-  if (nav) { nav.style.cssText = 'flex-direction:row!important;display:flex!important;flex:1!important;overflow-x:auto!important;padding:4px 6px!important;align-items:center!important;'; }
-  if (footer) { footer.style.display = 'none'; }
-  document.querySelectorAll('.sidebar-section-label,.sidebar-logo-sub,.sidebar-badge').forEach(function(el){ el.style.display='none'; });
-  document.querySelectorAll('.nav-item').forEach(function(el){
-    el.style.cssText = 'flex-direction:column!important;gap:2px!important;padding:8px 10px!important;font-size:10px!important;min-width:54px!important;text-align:center!important;white-space:nowrap!important;display:flex!important;align-items:center!important;border:none!important;background:none!important;color:rgba(255,255,255,0.7)!important;cursor:pointer!important;border-radius:8px!important;';
+  var isMobile = window.innerWidth <= 768;
+  var topbar   = document.getElementById('mobile-topbar');
+  var sidebar  = document.querySelector('.sidebar');
+  var layout   = document.querySelector('.layout');
+
+  if (isMobile) {
+    /* モバイルトップバーを表示 */
+    if (topbar)  { topbar.style.display  = 'flex'; }
+    /* サイドバーを完全非表示 */
+    if (sidebar) { sidebar.style.display = 'none'; }
+    /* レイアウトを1列に */
+    if (layout)  { layout.style.cssText  = 'display:block!important;'; }
+  } else {
+    if (topbar)  { topbar.style.display  = 'none'; }
+    if (sidebar) { sidebar.style.display = ''; }
+    if (layout)  { layout.style.cssText  = ''; }
+  }
+}
+
+function setMobileActive(btn) {
+  document.querySelectorAll('.mobile-nav-btn').forEach(function(b) {
+    b.style.background = 'none';
+    b.style.color = 'rgba(255,255,255,0.7)';
   });
-  var logoName = document.querySelector('.sidebar-logo-name');
-  if (logoName) { logoName.style.cssText = 'font-size:12px!important;margin-top:2px!important;'; }
-  var logo = document.querySelector('.sidebar-logo');
-  if (logo) { logo.style.cssText = 'padding:8px 12px!important;border-bottom:none!important;border-right:1px solid rgba(255,255,255,0.15)!important;flex-shrink:0!important;'; }
+  btn.style.background = 'rgba(255,255,255,0.18)';
+  btn.style.color = '#fff';
 }
 
 /* ページ読み込み時にセッション確認 */
