@@ -723,55 +723,73 @@ function renderStep() {
   if (isLast) btn.classList.add('finish-state');
   else        btn.classList.remove('finish-state');
 
-  /* 以降の工程プレビュー */
+  /* 以降の工程タイムラインを更新 */
   renderUpcomingSteps(steps, idx);
+
+  /* スクロールをトップに戻す */
+  var sb = document.getElementById('step-scroll-body');
+  if (sb) sb.scrollTop = 0;
 }
 
-/* 以降の工程をコンパクト表示 */
-function renderUpcomingSteps(steps, currentIdx) {
-  var container = document.getElementById('upcoming-steps-section');
-  if (!container) return;
+/* ============================================================
+   以降の工程タイムライン描画
+   ============================================================ */
+function renderUpcomingSteps(steps, idx) {
+  var block = document.getElementById('upcoming-steps-block');
+  if (!block) return;
 
-  var remaining = steps.slice(currentIdx + 1); /* 次の工程以降 */
-  if (!remaining.length) {
-    container.style.display = 'none';
+  /* 以降の工程がない（最終工程）場合はゴール表示のみ */
+  var upcomingSteps = steps.slice(idx + 1);
+
+  if (upcomingSteps.length === 0) {
+    /* 最終工程：ゴール表示 */
+    block.innerHTML =
+      '<div class="tl-goal">' +
+        '<div class="tl-goal-icon">🏁</div>' +
+        '<div class="tl-goal-text">これが最終工程です！/ Final Step!</div>' +
+      '</div>';
     return;
   }
-  container.style.display = 'block';
 
-  /* 最大5工程まで表示（それ以上は「...他N工程」） */
-  var SHOW_MAX = 5;
-  var shown    = remaining.slice(0, SHOW_MAX);
-  var extra    = remaining.length - shown.length;
+  var html = '<div class="upcoming-label">▼ 以降の工程 / UPCOMING STEPS (' + upcomingSteps.length + ')</div>';
 
-  document.getElementById('upcoming-steps-list').innerHTML =
-    shown.map(function(step, i) {
-      /* 距離が遠いほど薄くなる (opacity: 0.85 → 0.55) */
-      var opacity = Math.max(0.45, 0.88 - i * 0.10).toFixed(2);
-      var scale   = Math.max(0.88, 1.0  - i * 0.025).toFixed(3);
-      var icon    = getStepIcon(step);
-      var timerBadge = step.timer_minutes
-        ? '<span class="upcoming-tag">⏱️ ' + step.timer_minutes + '分</span>'
-        : '';
-      var scBadge = step.steam_con
-        ? '<span class="upcoming-tag">🌡️ ' + (step.steam_con.temperature || '') + '℃</span>'
-        : '';
-      return (
-        '<div class="upcoming-step-item" style="opacity:' + opacity + ';transform:scale(' + scale + ');">' +
-          '<div class="upcoming-step-num">STEP ' + step.step_number + '</div>' +
-          '<div class="upcoming-step-icon">' + icon + '</div>' +
-          '<div class="upcoming-step-body">' +
-            '<div class="upcoming-step-desc">' + escHtml(step.description) + '</div>' +
-            (timerBadge || scBadge
-              ? '<div class="upcoming-step-tags">' + timerBadge + scBadge + '</div>'
-              : '') +
-          '</div>' +
-        '</div>'
-      );
-    }).join('') +
-    (extra > 0
-      ? '<div class="upcoming-step-more">… 他 ' + extra + ' 工程</div>'
-      : '');
+  upcomingSteps.forEach(function(step, i) {
+    var isNext  = (i === 0);
+    var dotClass  = isNext ? 'is-next' : 'is-future';
+    var bodyClass = isNext ? 'is-next' : 'is-future';
+    var labelClass= isNext ? 'is-next' : '';
+    var descClass = isNext ? 'is-next' : '';
+
+    var icon = getStepIcon(step);
+
+    var tags = '';
+    if (step.timer_minutes) tags += '<span class="tl-tag timer">⏱️ ' + step.timer_minutes + '分</span>';
+    if (step.steam_con)     tags += '<span class="tl-tag steamcon">🌡️ ' + escHtml(step.steam_con.mode_label || '') + '</span>';
+
+    html += (
+      '<div class="tl-item">' +
+        '<div class="tl-dot-wrap">' +
+          '<div class="tl-dot ' + dotClass + '">' + icon + '</div>' +
+        '</div>' +
+        '<div class="tl-body ' + bodyClass + '">' +
+          '<div class="tl-step-label ' + labelClass + '">STEP ' + step.step_number + (isNext ? ' ← 次の工程' : '') + '</div>' +
+          '<div class="tl-desc ' + descClass + '">' + escHtml(step.description) + '</div>' +
+          (tags ? '<div class="tl-tags">' + tags + '</div>' : '') +
+        '</div>' +
+      '</div>'
+    );
+  });
+
+  /* 最後にゴールマーカー */
+  html += (
+    '<div class="tl-goal">' +
+      '<div class="tl-goal-icon">🏁</div>' +
+      '<div class="tl-goal-text">調理完了 / Cooking Complete</div>' +
+    '</div>'
+  );
+
+  block.innerHTML = html;
+}
 
 /* ============================================================
    完了ボタン
