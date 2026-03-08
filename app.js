@@ -112,6 +112,8 @@ var state = {
   currentServings:  10,
   currentStepIndex: 0,
   selectedMealTime: null,
+  selectedMealTimes: [],   /* 複数選択対応 */
+  selectedDate:     null,  /* 日付選択対応（nullなら今日） */
   filterCuisine:    'all',
   filterCategory:   'all',
   timerInterval:    null,
@@ -273,8 +275,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 
   try {
     await fetchAllMenus();
-    var todayCount = MENUS.filter(function(m) { return m.is_today; }).length;
-    document.getElementById('today-count').textContent = todayCount;
+    updateTodayCount();
     document.getElementById('home-sync-info').textContent =
       '最終同期: ' + hh + ':' + min + ' / Last sync: ' + hh + ':' + min;
     renderMenuGrid(MENUS, 'search-menu-grid');
@@ -395,16 +396,70 @@ function confirmGoHome() {
 /* ============================================================
    食事時間帯セレクター
    ============================================================ */
-function selectMealTime(meal, btn) {
-  state.selectedMealTime = meal;
-  document.querySelectorAll('.meal-time-btn').forEach(function(b) {
-    b.classList.remove('active');
+/* 日付ピッカー開閉 */
+function toggleDatePicker() {
+  var wrap = document.getElementById('date-picker-wrap');
+  var input = document.getElementById('date-picker-input');
+  if (wrap.style.display === 'none') {
+    wrap.style.display = 'block';
+    /* 現在の選択日をセット */
+    input.value = state.selectedDate || getTodayISO();
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function onDatePickerChange(val) {
+  state.selectedDate = val;
+  /* 表示テキスト更新 */
+  var d = new Date(val + 'T00:00:00');
+  document.getElementById('home-date').textContent = formatDateJa(d);
+  document.getElementById('date-picker-wrap').style.display = 'none';
+  /* メニューカウント再計算 */
+  updateTodayCount();
+}
+
+/* 食事区分トグル（複数選択） */
+function toggleMealTime(meal, btn) {
+  var idx = state.selectedMealTimes.indexOf(meal);
+  if (idx === -1) {
+    state.selectedMealTimes.push(meal);
+    btn.classList.add('active');
+  } else {
+    state.selectedMealTimes.splice(idx, 1);
+    btn.classList.remove('active');
+  }
+  /* 後方互換：selectedMealTimeも更新 */
+  state.selectedMealTime = state.selectedMealTimes.length === 1 ? state.selectedMealTimes[0] : null;
+  updateTodayCount();
+}
+
+/* 選択日付のメニューを取得するヘルパー */
+function getSelectedDateISO() {
+  return state.selectedDate || getTodayISO();
+}
+
+function getMenusForSelectedDate() {
+  var date = getSelectedDateISO();
+  return MENUS.filter(function(m) {
+    return m.serve_dates && m.serve_dates.indexOf(date) !== -1;
   });
-  btn.classList.add('active');
-  var count = MENUS.filter(function(m) {
-    return m.is_today && m.meal_times && m.meal_times.indexOf(meal) !== -1;
-  }).length;
-  document.getElementById('today-count').textContent = count;
+}
+
+function updateTodayCount() {
+  var menus = getMenusForSelectedDate();
+  if (state.selectedMealTimes.length > 0) {
+    menus = menus.filter(function(m) {
+      return m.meal_times && state.selectedMealTimes.some(function(mt) {
+        return m.meal_times.indexOf(mt) !== -1;
+      });
+    });
+  }
+  document.getElementById('today-count').textContent = menus.length;
+}
+
+function selectMealTime(meal, btn) {
+  toggleMealTime(meal, btn);
 }
 
 function filterByMealTime(meal, btn) {
@@ -412,31 +467,55 @@ function filterByMealTime(meal, btn) {
   document.querySelectorAll('.header-meal-tab').forEach(function(b) {
     b.classList.toggle('active', b === btn);
   });
+  var date = getSelectedDateISO();
   var filtered = MENUS.filter(function(m) {
-    return m.is_today && m.meal_times && m.meal_times.indexOf(meal) !== -1;
+    return m.serve_dates && m.serve_dates.indexOf(date) !== -1 &&
+           m.meal_times && m.meal_times.indexOf(meal) !== -1;
   });
   renderMenuGrid(filtered, 'today-menu-grid');
   document.getElementById('today-menu-count').textContent = filtered.length + '件';
   var info = MEAL_TIME_LABELS[meal];
   if (info) {
-    document.getElementById('today-header-title').textContent = '今日の' + info.ja + ' ' + info.icon;
+    document.getElementById('today-header-title').textContent = formatDateHeader() + info.ja + ' ' + info.icon;
     document.getElementById('today-header-sub').textContent = "TODAY'S " + info.en;
   }
+}
+
+function formatDateHeader() {
+  if (!state.selectedDate || state.selectedDate === getTodayISO()) return '今日の';
+  var d = new Date(state.selectedDate + 'T00:00:00');
+  return (d.getMonth()+1) + '/' + d.getDate() + ' の';
 }
 
 /* ============================================================
    今日のメニュー一覧
    ============================================================ */
 function showTodayMenu() {
-  var menus = state.selectedMealTime
-    ? MENUS.filter(function(m) {
-        return m.is_today && m.meal_times && m.meal_times.indexOf(state.selectedMealTime) !== -1;
-      })
-    : MENUS.filter(function(m) { return m.is_today; });
+  var date  = getSelectedDateISO();
+  var menus = MENUS.filter(function(m) {
+    return m.serve_dates && m.serve_dates.indexOf(date) !== -1;
+  });
+  if (state.selectedMealTimes.length > 0) {
+    menus = menus.filter(function(m) {
+      return m.meal_times && state.selectedMealTimes.some(function(mt) {
+        return m.meal_times.indexOf(mt) !== -1;
+      });
+    });
+  }
   renderMenuGrid(menus, 'today-menu-grid');
   document.getElementById('today-menu-count').textContent = menus.length + '件';
+  /* ヘッダータイトル更新 */
+  var prefix = formatDateHeader();
+  if (state.selectedMealTimes.length === 1) {
+    var info = MEAL_TIME_LABELS[state.selectedMealTimes[0]];
+    document.getElementById('today-header-title').textContent = prefix + (info ? info.ja + ' ' + info.icon : 'メニュー');
+    document.getElementById('today-header-sub').textContent = "TODAY'S " + (info ? info.en : 'MENU');
+  } else {
+    document.getElementById('today-header-title').textContent = prefix + 'メニュー';
+    document.getElementById('today-header-sub').textContent = "TODAY'S MENU";
+  }
   document.querySelectorAll('.header-meal-tab').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.meal === state.selectedMealTime);
+    b.classList.toggle('active', state.selectedMealTimes.indexOf(b.dataset.meal) !== -1);
   });
   showScreen('today');
 }
