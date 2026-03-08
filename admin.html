@@ -265,6 +265,45 @@ tr:hover td{background:var(--bg);}
   .modal-footer { padding: 12px !important; flex-direction: column !important; gap: 8px !important; }
   .modal-footer .btn { width: 100% !important; justify-content: center !important; }
   .cal-day { width: 34px !important; height: 34px !important; font-size: 11px !important; }
+
+  /* テーブル → カード形式 */
+  .table-card { overflow: visible !important; }
+  .table-toolbar { flex-wrap: wrap !important; gap: 6px !important; }
+  .table-toolbar > div:last-child { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; }
+  table { display: block !important; }
+  thead { display: none !important; }
+  tbody { display: block !important; }
+  tbody tr {
+    display: block !important;
+    background: #fff !important;
+    border-radius: 12px !important;
+    margin-bottom: 10px !important;
+    padding: 14px !important;
+    box-shadow: 0 2px 10px rgba(45,106,79,0.1) !important;
+    border: 1px solid rgba(45,106,79,0.1) !important;
+  }
+  tbody tr.empty-row { text-align: center !important; }
+  tbody td {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 5px 0 !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(45,106,79,0.06) !important;
+    font-size: 13px !important;
+    min-height: 32px !important;
+  }
+  tbody td:last-child { border-bottom: none !important; padding-top: 10px !important; justify-content: flex-end !important; }
+  tbody td::before {
+    content: attr(data-label);
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #6E8C75 !important;
+    flex-shrink: 0 !important;
+    margin-right: 8px !important;
+    min-width: 60px !important;
+  }
+  .td-actions { justify-content: flex-end !important; }
 }
 </style>
 </head>
@@ -642,7 +681,16 @@ function menuRow(m,compact){
   }).join(' ');
   var dc=renderDatesCell(m.serve_dates);
   var act=compact?'':'<td class="td-actions"><button class="btn-icon-only" onclick="openMenuModal(\''+esc(m.id)+'\')">✏️</button><button class="btn-icon-only" onclick="openDeleteModal(\''+esc(m.id)+'\',\''+esc(m.name)+'\')">🗑️</button></td>';
-  return '<tr><td class="td-id">'+escHtml(m.id||'')+'</td><td><div class="td-name">'+escHtml(m.name||'')+'</div><div class="td-name-en">'+escHtml(m.name_en||'')+'</div></td><td><span class="badge badge-cuisine">'+escHtml(m.food_category||'')+'</span></td><td><span class="badge badge-category">'+escHtml(m.category||'')+'</span></td><td>'+meals+'</td>'+(compact?'':'<td style="text-align:center;font-weight:700">'+escHtml(String(m.base_servings||10))+'</td>')+'<td style="text-align:center;font-size:11px">'+dc+'</td>'+act+'</tr>';
+  return '<tr>'+
+    '<td class="td-id" data-label="ID">'+escHtml(m.id||'')+'</td>'+
+    '<td data-label="メニュー名"><div class="td-name">'+escHtml(m.name||'')+'</div><div class="td-name-en">'+escHtml(m.name_en||'')+'</div></td>'+
+    '<td data-label="系統"><span class="badge badge-cuisine">'+escHtml(m.food_category||'')+'</span></td>'+
+    '<td data-label="分類"><span class="badge badge-category">'+escHtml(m.category||'')+'</span></td>'+
+    '<td data-label="食事区分">'+meals+'</td>'+
+    (compact?'':'<td data-label="食数" style="text-align:center;font-weight:700">'+escHtml(String(m.base_servings||10))+'</td>')+
+    '<td data-label="提供日" style="text-align:center;font-size:11px">'+dc+'</td>'+
+    act+
+  '</tr>';
 }
 function filterMenus(){renderMenuTable();}
 function setCuisineFilter(val,btn){
