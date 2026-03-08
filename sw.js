@@ -1,16 +1,14 @@
 /**
- * sw.js - Uni献立ナビ v2 Service Worker
+ * sw.js - Uni献立ナビ v3 Service Worker
  */
-var CACHE_VERSION = 'v2';
+var CACHE_VERSION = 'v3';
 var CACHE_NAME = 'uni-kondate-navi-' + CACHE_VERSION;
-
 var PRECACHE_URLS = [
   './index.html',
   './styles.css',
   './app.js',
   './manifest.json'
 ];
-
 self.addEventListener('install', function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -19,7 +17,6 @@ self.addEventListener('install', function(event) {
       .catch(function(err) { console.warn('[SW] Precache failed:', err); })
   );
 });
-
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(names) {
@@ -30,7 +27,6 @@ self.addEventListener('activate', function(event) {
     }).then(function() { return self.clients.claim(); })
   );
 });
-
 self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET') return;
   event.respondWith(
