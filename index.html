@@ -62,31 +62,33 @@
 
     /* ============ 現在工程ブロック ============ */
     .current-step-block {
-      background:#fff;
-      padding:12px 16px 16px;
-      box-shadow:0 3px 12px rgba(45,106,79,0.15);
-      border-left:5px solid #2D6A4F;
-      margin-bottom:0;
+      background: linear-gradient(135deg, #F0FAF4 0%, #E4F4EA 100%);
+      padding: 16px 16px 18px;
+      box-shadow: 0 4px 20px rgba(45,106,79,0.20);
+      border-left: 6px solid #2D6A4F;
+      margin-bottom: 0;
+      border-radius: 0 0 0 0;
     }
     .current-step-label {
       font-size:10px; font-weight:900; letter-spacing:0.1em;
-      color:#2D6A4F; margin-bottom:10px;
+      color:#2D6A4F; margin-bottom:12px;
       display:flex; align-items:center; gap:8px;
     }
-    .current-step-label::after { content:''; flex:1; height:1.5px; background:#D8EDD4; }
+    .current-step-label::after { content:''; flex:1; height:2px; background:#B0D8BC; }
 
     /* ============ 以降の工程タイムライン（縦） ============ */
     .upcoming-steps-block {
-      background:#F4FAF5;
+      background:#F7F7F7;
       padding:12px 16px 4px;
-      border-top:1px solid #D8EDD4;
+      border-top:1px solid #E0E0E0;
+      opacity:0.85;
     }
     .upcoming-label {
       font-size:10px; font-weight:900; letter-spacing:0.1em;
-      color:#6E8C75; margin-bottom:10px;
+      color:#AAAAAA; margin-bottom:10px;
       display:flex; align-items:center; gap:8px;
     }
-    .upcoming-label::after { content:''; flex:1; height:1px; background:#C8E0C8; }
+    .upcoming-label::after { content:''; flex:1; height:1px; background:#DDDDDD; }
 
     /* タイムラインアイテム（縦並び） */
     .tl-item {
@@ -97,7 +99,7 @@
     .tl-item:not(:last-child) .tl-dot-wrap::after {
       content:''; position:absolute;
       left:15px; top:32px; width:2px; height:calc(100% - 24px);
-      background:linear-gradient(to bottom, #C8E0C8 60%, transparent);
+      background:linear-gradient(to bottom, #DDDDDD 60%, transparent);
     }
     .tl-dot-wrap {
       position:relative; flex-shrink:0; width:32px;
@@ -106,28 +108,27 @@
       width:32px; height:32px; border-radius:50%;
       display:flex; align-items:center; justify-content:center;
       font-size:13px; font-weight:900;
-      border:2px solid #D0D0D0; background:#F5F5F5; color:#AAA;
+      border:2px solid #DDDDDD; background:#EEEEEE; color:#BBBBBB;
     }
     .tl-dot.is-next {
-      background:#FFF8EC; border-color:#E09B3D; color:#C8762A;
-      box-shadow:0 0 0 3px rgba(224,155,61,0.2);
+      background:#EEEEEE; border-color:#CCCCCC; color:#999999;
     }
-    .tl-dot.is-future { background:#F0F0F0; border-color:#D8D8D8; color:#BBB; }
+    .tl-dot.is-future { background:#F0F0F0; border-color:#E0E0E0; color:#CCCCCC; }
 
     .tl-body {
       flex:1; border-radius:10px; padding:8px 12px; margin-bottom:2px;
       background:#EFEFEF;
     }
     .tl-body.is-next {
-      background:#FFF8EC; border:1.5px solid #F0D090;
+      background:#F5F5F5; border:1px solid #E0E0E0;
     }
-    .tl-body.is-future { background:#F5F5F5; border:1px solid #E8E8E8; }
+    .tl-body.is-future { background:#F5F5F5; border:1px solid #EBEBEB; }
 
     .tl-step-label {
-      font-size:9px; font-weight:900; letter-spacing:0.06em; color:#AAA; margin-bottom:2px;
+      font-size:9px; font-weight:900; letter-spacing:0.06em; color:#BBBBBB; margin-bottom:2px;
     }
-    .tl-step-label.is-next { color:#C8762A; }
-    .tl-desc { font-size:13px; font-weight:700; color:#888; line-height:1.4; }
+    .tl-step-label.is-next { color:#AAAAAA; }
+    .tl-desc { font-size:13px; font-weight:700; color:#AAAAAA; line-height:1.4; }
     .tl-desc.is-next { color:#1A2E23; }
     .tl-tags { display:flex; gap:5px; margin-top:4px; flex-wrap:wrap; }
     .tl-tag { font-size:9px; font-weight:700; padding:2px 6px; border-radius:100px; background:#E0E0E0; color:#888; }
@@ -180,30 +181,40 @@
   </div>
 
   <div class="home-body">
-    <div class="home-date-card">
+    <!-- 日付選択 -->
+    <div class="home-date-card" onclick="toggleDatePicker()" style="cursor:pointer; user-select:none;">
       <div class="home-date-icon">📅</div>
       <div class="home-date-text" id="home-date">--月--日（－）</div>
+      <div style="margin-left:auto; font-size:11px; color:#52B788; font-weight:700;">▼ 変更</div>
+    </div>
+    <!-- 日付ピッカー（初期は非表示） -->
+    <div id="date-picker-wrap" style="display:none; padding:0 0 8px;">
+      <input type="date" id="date-picker-input"
+        style="width:100%; padding:12px 14px; border:2px solid #D8EDD4; border-radius:12px;
+               font-size:16px; font-family:inherit; color:#1A2E23; background:#fff;
+               box-sizing:border-box; outline:none;"
+        onchange="onDatePickerChange(this.value)">
     </div>
 
     <div class="meal-time-section">
-      <div class="meal-time-label">食事区分を選んでください / Select Meal Time</div>
+      <div class="meal-time-label">食事区分を選んでください（複数可）/ Select Meal Time</div>
       <div class="meal-time-grid">
-        <button class="meal-time-btn" data-meal="morning" onclick="selectMealTime('morning', this)">
+        <button class="meal-time-btn" data-meal="morning" onclick="toggleMealTime('morning', this)">
           <span class="meal-time-icon">🌅</span>
           <span class="meal-time-name">朝食</span>
           <span class="meal-time-en">MORNING</span>
         </button>
-        <button class="meal-time-btn" data-meal="lunch" onclick="selectMealTime('lunch', this)">
+        <button class="meal-time-btn" data-meal="lunch" onclick="toggleMealTime('lunch', this)">
           <span class="meal-time-icon">☀️</span>
           <span class="meal-time-name">昼食</span>
           <span class="meal-time-en">LUNCH</span>
         </button>
-        <button class="meal-time-btn" data-meal="dinner" onclick="selectMealTime('dinner', this)">
+        <button class="meal-time-btn" data-meal="dinner" onclick="toggleMealTime('dinner', this)">
           <span class="meal-time-icon">🌙</span>
           <span class="meal-time-name">夕食</span>
           <span class="meal-time-en">DINNER</span>
         </button>
-        <button class="meal-time-btn" data-meal="snack" onclick="selectMealTime('snack', this)">
+        <button class="meal-time-btn" data-meal="snack" onclick="toggleMealTime('snack', this)">
           <span class="meal-time-icon">🍵</span>
           <span class="meal-time-name">おやつ</span>
           <span class="meal-time-en">SNACK</span>
@@ -499,9 +510,9 @@
         </div>
       </div>
 
-      <div class="step-desc-card">
-        <div class="step-desc-main" id="step-desc-main"></div>
-        <div class="step-desc-en" id="step-desc-en"></div>
+      <div class="step-desc-card" style="padding:14px 16px 10px; background:linear-gradient(135deg,#F0FAF4,#E8F4EC); border-radius:12px; margin:12px 16px 0; border-left:4px solid #2D6A4F;">
+        <div class="step-desc-main" id="step-desc-main" style="font-size:20px; font-weight:900; color:#1A2E23; line-height:1.5; letter-spacing:0.02em;"></div>
+        <div class="step-desc-en" id="step-desc-en" style="font-size:13px; color:#52B788; margin-top:6px; font-weight:600;"></div>
       </div>
 
       <div class="step-ing-section" id="step-ing-section">
