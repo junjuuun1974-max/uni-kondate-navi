@@ -1,7 +1,7 @@
 /**
- * sw.js - Uni献立ナビ v4 Service Worker
+ * sw.js - Uni献立ナビ v3 Service Worker
  */
-var CACHE_VERSION = 'v4';
+var CACHE_VERSION = 'v5';
 var CACHE_NAME = 'uni-kondate-navi-' + CACHE_VERSION;
 var PRECACHE_URLS = [
   './index.html',
