@@ -1,12 +1,10 @@
 /**
- * app.js - Uni献立ナビ v3
+ * app.js - Uni献立ナビ v4
  *
- * v3 変更点:
- * - Supabase からリアルタイムでデータを取得
- * - ハードコードデータを完全廃止
- * - serve_dates による今日のメニュー判定
- * - 工程・材料をメニュー選択時に動的取得
- * - 接続設定がなければ設定画面を表示
+ * v4 変更点:
+ * - 工程全体像画面を追加（調理開始前に全工程を確認）
+ * - 調理中・タイマー中にホームボタンを追加
+ * - タイマー終了時に音を鳴らす（Web Audio API）
  */
 
 'use strict';
@@ -105,7 +103,7 @@ function getStepIcon(step) {
 /* ============================================================
    アプリ状態
    ============================================================ */
-var MENUS = [];   /* Supabase から取得したメニュー一覧 */
+var MENUS = [];
 
 var state = {
   currentScreen:    'home',
@@ -135,13 +133,35 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ============================================================
+   タイマー音（Web Audio API）
+   ============================================================ */
+function playAlarmSound() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    /* ピピピピーン と4回鳴らす */
+    [0, 0.5, 1.0, 1.5, 2.2].forEach(function(t, i) {
+      var osc  = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = (i === 4) ? 1046 : 880; /* 最後だけ高音 */
+      gain.gain.setValueAtTime(0.6, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.45);
+    });
+  } catch(e) {
+    console.warn('[Uni] Audio error:', e);
+  }
+}
+
+/* ============================================================
    Supabase からメニュー一覧を取得
    ============================================================ */
 async function fetchAllMenus() {
   var rows = await sbFetch('menus', 'select=*&order=id');
   var today = getTodayISO();
-
-  /* serve_dates に今日の日付が含まれているかで is_today を判定 */
   MENUS = rows.map(function(m) {
     return Object.assign({}, m, {
       is_today: !!(m.serve_dates && m.serve_dates.indexOf(today) !== -1),
@@ -157,18 +177,13 @@ async function fetchAllMenus() {
    ============================================================ */
 async function loadMenuDetail(menu) {
   if (menu._loaded) return;
-
   var id = menu.id;
 
-  /* 材料 */
   var ings = await sbFetch('ingredients',
     'select=*&menu_id=eq.' + encodeURIComponent(id) + '&order=sort_order');
-
-  /* 工程 */
   var rawSteps = await sbFetch('steps',
     'select=*&menu_id=eq.' + encodeURIComponent(id) + '&order=step_number');
 
-  /* 工程ごとの材料 */
   var stepIngs = [];
   if (rawSteps.length) {
     var stepIds = rawSteps.map(function(s) { return s.id; }).join(',');
@@ -176,51 +191,29 @@ async function loadMenuDetail(menu) {
       'select=*&step_id=in.(' + stepIds + ')');
   }
 
-  /* データ構造を旧フォーマット互換に変換 */
   menu.ingredients = ings.map(function(ing) {
-    return {
-      id:      ing.id,
-      name:    ing.name,
-      name_en: ing.name_en || '',
-      amount:  ing.amount  || 0,
-      unit:    ing.unit    || ''
-    };
+    return { id: ing.id, name: ing.name, name_en: ing.name_en || '',
+             amount: ing.amount || 0, unit: ing.unit || '' };
   });
 
   menu.steps = rawSteps.map(function(s) {
-    /* スチコン情報を旧 steam_con オブジェクトに変換 */
     var steamCon = null;
     if (s.sc_mode) {
-      steamCon = {
-        mode:          s.sc_mode,
-        mode_label:    s.sc_mode_label || s.sc_mode,
-        temperature:   s.sc_temperature,
-        timer_minutes: s.sc_timer_minutes
-      };
+      steamCon = { mode: s.sc_mode, mode_label: s.sc_mode_label || s.sc_mode,
+                   temperature: s.sc_temperature, timer_minutes: s.sc_timer_minutes };
     }
-
-    /* この工程に紐づく材料 */
     var myIngs = stepIngs
       .filter(function(si) { return si.step_id === s.id; })
       .map(function(si) {
-        return {
-          name:    si.name,
-          name_en: si.name_en || '',
-          amount:  si.amount  || 0,
-          unit:    si.unit    || ''
-        };
+        return { name: si.name, name_en: si.name_en || '',
+                 amount: si.amount || 0, unit: si.unit || '' };
       });
-
     return {
-      id:             s.id,
-      step_number:    s.step_number,
-      step_type:      s.step_type || 'default',
-      photo:          s.photo_url || null,
-      description:    s.description    || '',
-      description_en: s.description_en || '',
-      ingredients:    myIngs,
-      steam_con:      steamCon,
-      timer_minutes:  s.timer_minutes || (steamCon ? steamCon.timer_minutes : null)
+      id: s.id, step_number: s.step_number, step_type: s.step_type || 'default',
+      photo: s.photo_url || null, description: s.description || '',
+      description_en: s.description_en || '', ingredients: myIngs,
+      steam_con: steamCon,
+      timer_minutes: s.timer_minutes || (steamCon ? steamCon.timer_minutes : null)
     };
   });
 
@@ -235,11 +228,9 @@ window.addEventListener('DOMContentLoaded', async function() {
 
   var now = new Date();
   document.getElementById('home-date').textContent = formatDateJa(now);
-
   var hh  = String(now.getHours()).padStart(2, '0');
   var min = String(now.getMinutes()).padStart(2, '0');
 
-  /* Supabase 未設定の場合 */
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     document.getElementById('home-sync-info').textContent =
       '⚠️ 接続設定が必要です / Setup required';
@@ -253,23 +244,18 @@ window.addEventListener('DOMContentLoaded', async function() {
     return;
   }
 
-  /* データ取得 */
   try {
     await fetchAllMenus();
-
     var todayCount = MENUS.filter(function(m) { return m.is_today; }).length;
     document.getElementById('today-count').textContent = todayCount;
     document.getElementById('home-sync-info').textContent =
       '最終同期: ' + hh + ':' + min + ' / Last sync: ' + hh + ':' + min;
-
     renderMenuGrid(MENUS, 'search-menu-grid');
     document.getElementById('search-info').textContent =
       '全 ' + MENUS.length + ' 件 / ' + MENUS.length + ' items';
-
   } catch (e) {
     console.error('[Uni] Fetch error:', e);
-    document.getElementById('home-sync-info').textContent =
-      '⚠️ データ取得失敗 / Fetch failed';
+    document.getElementById('home-sync-info').textContent = '⚠️ データ取得失敗 / Fetch failed';
     document.getElementById('today-count').textContent = '!';
   }
 
@@ -316,7 +302,7 @@ function showScreen(id, addHistory) {
   var next = document.getElementById('screen-' + id);
   next.classList.add('active');
 
-  var scrollEl = next.querySelector('.scroll-body, .timer-body, .complete-body, .home-body');
+  var scrollEl = next.querySelector('.scroll-body, .timer-body, .complete-body, .home-body, .steps-list');
   if (scrollEl) scrollEl.scrollTop = 0;
 }
 
@@ -330,6 +316,8 @@ function goBack() {
 }
 
 function goHome() {
+  clearTimerInterval();
+  document.getElementById('alarm-overlay').classList.remove('active');
   state.screenHistory = [];
   var current = document.querySelector('.screen.active');
   if (current) current.classList.remove('active');
@@ -337,46 +325,44 @@ function goHome() {
   document.getElementById('screen-home').classList.add('active');
 }
 
+/* 調理中・タイマー中のホームボタン確認ダイアログ */
+function confirmGoHome() {
+  var ok = window.confirm(
+    'ホームに戻りますか？\n調理の進捗はリセットされます。\n\n' +
+    'Return to home?\nCooking progress will be reset.'
+  );
+  if (ok) goHome();
+}
+
 /* ============================================================
-   食事時間帯セレクター（ホーム画面）
+   食事時間帯セレクター
    ============================================================ */
 function selectMealTime(meal, btn) {
   state.selectedMealTime = meal;
-
   document.querySelectorAll('.meal-time-btn').forEach(function(b) {
     b.classList.remove('active');
   });
   btn.classList.add('active');
-
   var count = MENUS.filter(function(m) {
     return m.is_today && m.meal_times && m.meal_times.indexOf(meal) !== -1;
   }).length;
   document.getElementById('today-count').textContent = count;
 }
 
-/* ============================================================
-   今日のメニュー内のタブ切り替え
-   ============================================================ */
 function filterByMealTime(meal, btn) {
   state.selectedMealTime = meal;
-
   document.querySelectorAll('.header-meal-tab').forEach(function(b) {
     b.classList.toggle('active', b === btn);
   });
-
   var filtered = MENUS.filter(function(m) {
     return m.is_today && m.meal_times && m.meal_times.indexOf(meal) !== -1;
   });
-
   renderMenuGrid(filtered, 'today-menu-grid');
   document.getElementById('today-menu-count').textContent = filtered.length + '件';
-
   var info = MEAL_TIME_LABELS[meal];
   if (info) {
-    document.getElementById('today-header-title').textContent =
-      '今日の' + info.ja + ' ' + info.icon;
-    document.getElementById('today-header-sub').textContent =
-      "TODAY'S " + info.en;
+    document.getElementById('today-header-title').textContent = '今日の' + info.ja + ' ' + info.icon;
+    document.getElementById('today-header-sub').textContent = "TODAY'S " + info.en;
   }
 }
 
@@ -384,22 +370,16 @@ function filterByMealTime(meal, btn) {
    今日のメニュー一覧
    ============================================================ */
 function showTodayMenu() {
-  var menus;
-  if (state.selectedMealTime) {
-    menus = MENUS.filter(function(m) {
-      return m.is_today && m.meal_times && m.meal_times.indexOf(state.selectedMealTime) !== -1;
-    });
-  } else {
-    menus = MENUS.filter(function(m) { return m.is_today; });
-  }
-
+  var menus = state.selectedMealTime
+    ? MENUS.filter(function(m) {
+        return m.is_today && m.meal_times && m.meal_times.indexOf(state.selectedMealTime) !== -1;
+      })
+    : MENUS.filter(function(m) { return m.is_today; });
   renderMenuGrid(menus, 'today-menu-grid');
   document.getElementById('today-menu-count').textContent = menus.length + '件';
-
   document.querySelectorAll('.header-meal-tab').forEach(function(b) {
     b.classList.toggle('active', b.dataset.meal === state.selectedMealTime);
   });
-
   showScreen('today');
 }
 
@@ -417,11 +397,10 @@ function showSearch() {
 function doSearch() {
   var q = document.getElementById('search-input').value.trim().toLowerCase();
   document.getElementById('search-clear-btn').style.display = q ? 'block' : 'none';
-
   var results = MENUS.filter(function(m) {
     var cuisineOk  = (state.filterCuisine  === 'all' || m.food_category === state.filterCuisine);
     var categoryOk = (state.filterCategory === 'all' || m.category      === state.filterCategory);
-    var textOk     = !q || (
+    var textOk = !q || (
       (m.id            || '').toLowerCase().indexOf(q) !== -1 ||
       (m.name          || '').toLowerCase().indexOf(q) !== -1 ||
       (m.name_en       || '').toLowerCase().indexOf(q) !== -1 ||
@@ -430,7 +409,6 @@ function doSearch() {
     );
     return cuisineOk && categoryOk && textOk;
   });
-
   renderMenuGrid(results, 'search-menu-grid');
   document.getElementById('search-info').textContent = q
     ? '"' + q + '" : ' + results.length + ' 件'
@@ -463,7 +441,6 @@ function setFilter(type, value, btn) {
    ============================================================ */
 function renderMenuGrid(menus, gridId) {
   var grid = document.getElementById(gridId);
-
   if (!menus || !menus.length) {
     grid.innerHTML =
       '<div class="empty-state">' +
@@ -473,19 +450,14 @@ function renderMenuGrid(menus, gridId) {
       '</div>';
     return;
   }
-
   grid.innerHTML = menus.map(function(m) {
     var mediaHtml = m.finish_photo_url
       ? '<img src="' + escHtml(m.finish_photo_url) + '" alt="' + escHtml(m.name) + '" loading="lazy">'
       : escHtml(m.emoji || '🍽️');
-
     var mealTags = (m.meal_times || []).map(function(mt) {
       var info = MEAL_TIME_LABELS[mt];
-      return info
-        ? '<span class="tag tag-meal-' + mt + '">' + info.icon + ' ' + info.ja + '</span>'
-        : '';
+      return info ? '<span class="tag tag-meal-' + mt + '">' + info.icon + ' ' + info.ja + '</span>' : '';
     }).join('');
-
     return (
       '<div class="menu-card" onclick="selectMenu(\'' + m.id + '\')">' +
         '<div class="menu-card-media">' + mediaHtml + '</div>' +
@@ -493,8 +465,8 @@ function renderMenuGrid(menus, gridId) {
           '<div class="menu-card-id">' + escHtml(m.id) + '</div>' +
           '<div class="menu-card-name">' + escHtml(m.name) + '</div>' +
           '<div class="menu-card-tags">' +
-            '<span class="tag tag-cuisine">' + escHtml(m.food_category || '') + '</span>' +
-            '<span class="tag tag-category">' + escHtml(m.category || '') + '</span>' +
+            '<span class="tag tag-cuisine">'  + escHtml(m.food_category || '') + '</span>' +
+            '<span class="tag tag-category">' + escHtml(m.category      || '') + '</span>' +
             mealTags +
           '</div>' +
         '</div>' +
@@ -504,13 +476,12 @@ function renderMenuGrid(menus, gridId) {
 }
 
 /* ============================================================
-   メニュー選択 → 詳細 (工程・材料を Supabase から取得)
+   メニュー選択 → 詳細
    ============================================================ */
 async function selectMenu(id) {
   var menu = MENUS.find(function(m) { return m.id === id; });
   if (!menu) return;
 
-  /* ローディング表示 */
   var loadEl = document.getElementById('loading');
   if (loadEl) loadEl.classList.remove('hidden');
 
@@ -524,10 +495,8 @@ async function selectMenu(id) {
   }
 
   if (loadEl) loadEl.classList.add('hidden');
-
   state.selectedMenu    = menu;
   state.currentServings = menu.base_servings || 10;
-
   renderDetailScreen();
   showScreen('detail');
 }
@@ -558,35 +527,29 @@ function renderDetailScreen() {
 
   document.getElementById('detail-id').textContent   = m.id;
   document.getElementById('detail-name').textContent = m.name;
-
   document.getElementById('detail-tags').innerHTML =
     '<span class="tag tag-cuisine">'  + escHtml(m.food_category || '') + '</span>' +
     '<span class="tag tag-category">' + escHtml(m.category      || '') + '</span>';
-
   document.getElementById('detail-steps-count').textContent =
     (m.steps && m.steps.length) ? m.steps.length : '—';
-
   renderDetailIngredients();
 }
 
 function renderDetailIngredients() {
   var m     = state.selectedMenu;
   var ratio = state.currentServings / (m.base_servings || 10);
-
   document.getElementById('serving-num').textContent = state.currentServings;
-
   if (!m.ingredients || !m.ingredients.length) {
     document.getElementById('detail-ing-list').innerHTML =
       '<div style="color:#999;font-size:13px">材料データがありません</div>';
     return;
   }
-
   document.getElementById('detail-ing-list').innerHTML = m.ingredients.map(function(ing) {
     var amt  = (ing.amount || 0) * ratio;
     var disp = Number.isInteger(amt) ? amt : amt.toFixed(1);
     return (
       '<div class="ing-row">' +
-        '<span class="ing-name">'   + escHtml(ing.name)          + '</span>' +
+        '<span class="ing-name">'   + escHtml(ing.name)           + '</span>' +
         '<span class="ing-amount">' + disp + ' ' + escHtml(ing.unit) + '</span>' +
       '</div>'
     );
@@ -599,7 +562,47 @@ function changeServings(delta) {
 }
 
 /* ============================================================
-   調理開始
+   工程全体像画面（新規追加）
+   ============================================================ */
+function showStepsOverview() {
+  var m = state.selectedMenu;
+  document.getElementById('overview-menu-name').textContent = m.name;
+
+  var list = document.getElementById('steps-overview-list');
+  if (!m.steps || !m.steps.length) {
+    list.innerHTML = '<div style="text-align:center;padding:40px;color:#6E8C75">工程データがありません</div>';
+  } else {
+    list.innerHTML = m.steps.map(function(step) {
+      var icon = getStepIcon(step);
+      var tags = '';
+      if (step.timer_minutes) {
+        tags += '<span class="steps-list-tag timer">⏱️ ' + step.timer_minutes + '分</span>';
+      }
+      if (step.steam_con) {
+        tags += '<span class="steps-list-tag steamcon">🌡️ ' +
+          escHtml(step.steam_con.mode_label) + ' ' +
+          (step.steam_con.temperature || '') + '℃</span>';
+      }
+      return (
+        '<div class="steps-list-item">' +
+          '<div class="steps-list-num">' + step.step_number + '</div>' +
+          '<div class="steps-list-icon">' + icon + '</div>' +
+          '<div class="steps-list-body">' +
+            '<div class="steps-list-desc">'    + escHtml(step.description)    + '</div>' +
+            (step.description_en
+              ? '<div class="steps-list-desc-en">' + escHtml(step.description_en) + '</div>'
+              : '') +
+            (tags ? '<div class="steps-list-meta">' + tags + '</div>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+  showScreen('steps-overview');
+}
+
+/* ============================================================
+   調理開始（工程一覧画面から）
    ============================================================ */
 function startCooking() {
   state.currentStepIndex = 0;
@@ -619,13 +622,12 @@ function renderStep() {
   var num   = idx + 1;
   var pct   = Math.round((num / total) * 100);
 
-  document.getElementById('step-menu-name').textContent    = m.name;
+  document.getElementById('step-menu-name').textContent     = m.name;
   document.getElementById('step-progress-fill').style.width = pct + '%';
   document.getElementById('step-progress-text').textContent = 'STEP ' + num + ' / ' + total;
   document.getElementById('step-current-num').textContent   = num;
   document.getElementById('step-total-num').textContent     = total;
-
-  document.getElementById('step-type-icon').textContent = getStepIcon(step);
+  document.getElementById('step-type-icon').textContent     = getStepIcon(step);
 
   var photoBox = document.getElementById('step-photo-box');
   if (step.photo) {
@@ -650,12 +652,12 @@ function renderStep() {
       var disp = Number.isInteger(amt) ? amt : amt.toFixed(1);
       return (
         '<div class="step-ing-card">' +
-          '<div class="step-ing-name-en">' + escHtml(ing.name_en || '') + '</div>' +
+          '<div class="step-ing-name-en">'    + escHtml(ing.name_en || '') + '</div>' +
           '<div class="step-ing-amount-row">' +
-            '<span class="step-ing-amount">' + disp + '</span>' +
-            '<span class="step-ing-unit"> '  + escHtml(ing.unit)  + '</span>' +
+            '<span class="step-ing-amount">'  + disp                       + '</span>' +
+            '<span class="step-ing-unit"> '   + escHtml(ing.unit)          + '</span>' +
           '</div>' +
-          '<div class="step-ing-name-ja">' + escHtml(ing.name) + '</div>' +
+          '<div class="step-ing-name-ja">'    + escHtml(ing.name)          + '</div>' +
         '</div>'
       );
     }).join('');
@@ -679,20 +681,17 @@ function renderStep() {
   var hintRow = document.getElementById('timer-hint-row');
   if (step.timer_minutes) {
     hintRow.style.display = 'flex';
-    var mm = String(Math.floor(step.timer_minutes)).padStart(2, '0');
-    document.getElementById('timer-hint-val').textContent = mm + ':00';
+    document.getElementById('timer-hint-val').textContent =
+      String(Math.floor(step.timer_minutes)).padStart(2, '0') + ':00';
   } else {
     hintRow.style.display = 'none';
   }
 
   var isLast = (idx === total - 1);
   var btn    = document.getElementById('complete-btn');
-  document.getElementById('complete-btn-main').textContent =
-    isLast ? '調理完了！' : '完了して次へ';
-  document.getElementById('complete-btn-sub').textContent =
-    isLast ? 'COOKING COMPLETE' : 'DONE -> NEXT STEP';
-  document.getElementById('complete-btn-arrow').textContent = isLast ? '✓' : '→';
-
+  document.getElementById('complete-btn-main').textContent  = isLast ? '調理完了！'       : '完了して次へ';
+  document.getElementById('complete-btn-sub').textContent   = isLast ? 'COOKING COMPLETE' : 'DONE -> NEXT STEP';
+  document.getElementById('complete-btn-arrow').textContent = isLast ? '✓'               : '→';
   if (isLast) btn.classList.add('finish-state');
   else        btn.classList.remove('finish-state');
 }
@@ -708,7 +707,6 @@ function completeStep() {
   setTimeout(function() { overlay.classList.remove('flash'); }, 380);
 
   var step = state.selectedMenu.steps[state.currentStepIndex];
-
   if (step.timer_minutes) {
     launchTimer(step.timer_minutes, step.description_en, state.currentStepIndex + 1);
   } else {
@@ -734,7 +732,6 @@ function launchTimer(minutes, descEn, stepNum) {
 
   clearTimerInterval();
   document.getElementById('alarm-overlay').classList.remove('active');
-
   document.getElementById('timer-step-label').textContent   = 'STEP ' + stepNum;
   document.getElementById('timer-desc-text').textContent    = descEn || 'Please wait for the timer.';
   document.getElementById('timer-display').textContent      = formatTime(state.timerRemaining);
@@ -766,12 +763,9 @@ function launchTimer(minutes, descEn, stepNum) {
 function updateTimerDisplay() {
   var rem   = state.timerRemaining;
   var total = state.timerTotal;
-
   document.getElementById('timer-display').textContent = formatTime(rem);
-
   var offset = RING_CIRC * (1 - rem / total);
   document.getElementById('timer-ring-fill').style.strokeDashoffset = offset;
-
   var dispEl = document.getElementById('timer-display');
   if (rem <= 10 && rem > 0) dispEl.className = 'timer-time urgent';
   else if (rem > 0)          dispEl.className = 'timer-time';
@@ -794,17 +788,18 @@ function onTimerFinished() {
   document.getElementById('timer-next-icon').textContent = '✓';
   document.getElementById('timer-next-text').textContent = '次の工程へ進む / NEXT STEP';
 
+  /* 🔔 アラーム音 */
+  playAlarmSound();
+  /* 📳 バイブレーション */
   if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
 }
 
 function timerComplete() {
   clearTimerInterval();
   document.getElementById('alarm-overlay').classList.remove('active');
-
   document.getElementById('screen-timer').classList.remove('active');
   state.currentScreen = 'step';
   document.getElementById('screen-step').classList.add('active');
-
   advanceStep();
 }
 
@@ -847,12 +842,10 @@ function confirmExitCooking() {
 function showCookingComplete() {
   document.getElementById('complete-menu-name').textContent = state.selectedMenu.name;
   state.screenHistory = [];
-
   var current = document.querySelector('.screen.active');
   if (current) current.classList.remove('active');
   state.currentScreen = 'complete';
   document.getElementById('screen-complete').classList.add('active');
-
   if (navigator.vibrate) navigator.vibrate([100, 60, 100, 60, 300]);
 }
 
