@@ -13,6 +13,45 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* 工程一覧画面 */
+    .steps-overview-screen { display:flex; flex-direction:column; height:100%; }
+    .steps-list { flex:1; overflow-y:auto; padding:16px; }
+    .steps-list-item {
+      display:flex; align-items:flex-start; gap:14px;
+      background:#fff; border-radius:14px; padding:16px;
+      margin-bottom:10px; box-shadow:0 2px 8px rgba(45,106,79,0.08);
+      border-left:4px solid #52B788;
+    }
+    .steps-list-num {
+      width:32px; height:32px; border-radius:10px;
+      background:#2D6A4F; color:#fff;
+      font-size:14px; font-weight:900;
+      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    }
+    .steps-list-icon { font-size:22px; flex-shrink:0; margin-top:2px; }
+    .steps-list-body { flex:1; }
+    .steps-list-desc { font-size:14px; font-weight:700; color:#1A2E23; line-height:1.5; }
+    .steps-list-desc-en { font-size:11px; color:#6E8C75; margin-top:3px; line-height:1.4; }
+    .steps-list-meta { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; }
+    .steps-list-tag {
+      font-size:10px; font-weight:700; padding:3px 8px;
+      border-radius:100px; background:#D8EDD4; color:#2D6A4F;
+    }
+    .steps-list-tag.timer { background:#FDF0E0; color:#C8762A; }
+    .steps-list-tag.steamcon { background:#EEF2FF; color:#5B6FA8; }
+
+    /* ホームボタン（調理中） */
+    .home-btn-cooking {
+      width:40px; height:40px; border-radius:10px;
+      background:rgba(255,255,255,0.15); border:none;
+      font-size:18px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; color:#fff;
+      transition:background 0.15s;
+    }
+    .home-btn-cooking:active { background:rgba(255,255,255,0.30); }
+  </style>
 </head>
 <body>
 
@@ -50,13 +89,11 @@
   </div>
 
   <div class="home-body">
-    <!-- 日付表示: XX月XX日（曜日） -->
     <div class="home-date-card">
       <div class="home-date-icon">📅</div>
       <div class="home-date-text" id="home-date">--月--日（－）</div>
     </div>
 
-    <!-- 食事時間帯セレクター -->
     <div class="meal-time-section">
       <div class="meal-time-label">食事区分を選んでください / Select Meal Time</div>
       <div class="meal-time-grid">
@@ -83,7 +120,6 @@
       </div>
     </div>
 
-    <!-- アクションボタン -->
     <div class="home-actions">
       <button class="home-btn home-btn-primary" onclick="showTodayMenu()">
         <span class="home-btn-icon">📋</span>
@@ -118,7 +154,6 @@
       <div class="header-sub" id="today-header-sub">TODAY'S MENU</div>
     </div>
     <div class="header-spacer"></div>
-    <!-- 食事時間帯タブ (一覧画面でも切り替え可能) -->
     <div class="header-meal-tabs">
       <button class="header-meal-tab" data-meal="morning" onclick="filterByMealTime('morning', this)">🌅朝</button>
       <button class="header-meal-tab" data-meal="lunch"   onclick="filterByMealTime('lunch',   this)">☀️昼</button>
@@ -194,7 +229,6 @@
     <div class="header-spacer"></div>
   </div>
 
-  <!-- 仕上がり写真ヒーロー -->
   <div class="detail-hero">
     <div class="detail-hero-media" id="detail-hero-media">🍽️</div>
     <div class="detail-hero-overlay">
@@ -206,13 +240,8 @@
   </div>
 
   <div class="scroll-body detail-scroll">
-    <!-- 食数 (試作: 本番は権限制御で表示切替) -->
     <div class="detail-section">
       <div class="section-label">🍽️ 食数 / Servings</div>
-      <!--
-        【実装方針 B】食数変更UIを試作として残す。
-        本番: currentUser.role === 'staff' の場合、ボタンを非表示にして表示のみとする。
-      -->
       <div class="serving-counter">
         <button class="serving-btn" onclick="changeServings(-5)">−5</button>
         <button class="serving-btn" onclick="changeServings(-1)">−</button>
@@ -225,13 +254,11 @@
       </div>
     </div>
 
-    <!-- 材料 -->
     <div class="detail-section">
       <div class="section-label">🥦 材料 / Ingredients</div>
       <div class="ing-list" id="detail-ing-list"></div>
     </div>
 
-    <!-- 工程数 -->
     <div class="detail-section">
       <div class="section-label">📋 工程数 / Steps</div>
       <div class="steps-overview">
@@ -241,6 +268,33 @@
     </div>
     <div style="height:110px"></div>
   </div>
+
+  <div class="fixed-btn-wrap">
+    <button class="start-btn" onclick="showStepsOverview()">
+      <span class="start-btn-icon">📋</span>
+      <div class="start-btn-text">
+        <div class="start-btn-main">工程を確認する</div>
+        <div class="start-btn-sub">CHECK ALL STEPS</div>
+      </div>
+      <span class="start-btn-arrow">▶</span>
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     S04.5: 工程一覧（全体像）
+     ============================================================ -->
+<div class="screen" id="screen-steps-overview">
+  <div class="header" style="background:linear-gradient(135deg,#2D6A4F,#40916C)">
+    <button class="back-btn" style="color:#fff" onclick="goBack()">←</button>
+    <div class="header-titles" style="color:#fff">
+      <div class="header-title" id="overview-menu-name">調理工程</div>
+      <div class="header-sub">ALL STEPS OVERVIEW</div>
+    </div>
+    <div style="width:40px"></div>
+  </div>
+
+  <div class="steps-list" id="steps-overview-list"></div>
 
   <div class="fixed-btn-wrap">
     <button class="start-btn" onclick="startCooking()">
@@ -255,32 +309,29 @@
 </div>
 
 <!-- ============================================================
-     S05: 調理工程 (1画面・スクロールなし)
+     S05: 調理工程
      ============================================================ -->
 <div class="screen" id="screen-step">
-  <!-- ヘッダー (コンパクト) -->
   <div class="step-header">
     <button class="back-btn back-btn-sm" onclick="confirmExitCooking()">←</button>
     <div class="step-header-center">
       <div class="step-menu-name" id="step-menu-name">調理手順</div>
-      <!-- 進捗バー -->
       <div class="step-progress-track">
         <div class="step-progress-fill" id="step-progress-fill"></div>
       </div>
       <div class="step-progress-text" id="step-progress-text">STEP 1 / 1</div>
     </div>
-    <!-- 工程番号 (大きく) -->
     <div class="step-num-block">
       <span class="step-num-current" id="step-current-num">1</span>
       <span class="step-num-sep">/</span>
       <span class="step-num-total" id="step-total-num">1</span>
     </div>
+    <!-- ホームボタン -->
+    <button class="home-btn-cooking" onclick="confirmGoHome()" title="ホームへ戻る">🏠</button>
   </div>
 
-  <!-- 工程コンテンツ (1画面に収める flex レイアウト) -->
   <div class="step-content" id="step-content">
 
-    <!-- 行1: 作業種別アイコン + 工程写真 -->
     <div class="step-row-top">
       <div class="step-type-icon" id="step-type-icon">👨‍🍳</div>
       <div class="step-photo-box" id="step-photo-box">
@@ -291,19 +342,16 @@
       </div>
     </div>
 
-    <!-- 行2: 工程説明 -->
     <div class="step-desc-card">
       <div class="step-desc-main" id="step-desc-main"></div>
       <div class="step-desc-en" id="step-desc-en"></div>
     </div>
 
-    <!-- 行3: 使用材料 -->
     <div class="step-ing-section" id="step-ing-section">
       <div class="step-section-label">🥦 使用材料 / Ingredients</div>
       <div class="step-ing-grid" id="step-ing-grid"></div>
     </div>
 
-    <!-- 行4: スチコン設定 (条件表示) -->
     <div class="steamcon-panel" id="step-steamcon" style="display:none">
       <div class="steamcon-header">
         <span>🌡️</span>
@@ -328,7 +376,6 @@
       </div>
     </div>
 
-    <!-- 行5: タイマー予告 (条件表示) -->
     <div class="timer-hint-row" id="timer-hint-row" style="display:none">
       <span class="timer-hint-icon">⏱️</span>
       <div>
@@ -338,9 +385,8 @@
       <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
     </div>
 
-  </div><!-- /step-content -->
+  </div>
 
-  <!-- 完了ボタン (固定・最重要操作) -->
   <div class="complete-btn-wrap">
     <button class="complete-btn" id="complete-btn" onclick="completeStep()">
       <span class="complete-btn-check">✓</span>
@@ -365,7 +411,8 @@
       <div class="header-title">タイマー</div>
       <div class="header-sub">TIMER</div>
     </div>
-    <div style="width:64px"></div>
+    <!-- タイマー画面にもホームボタン -->
+    <button class="home-btn-cooking" onclick="confirmGoHome()" title="ホームへ戻る" style="background:rgba(45,106,79,0.15);color:#2D6A4F">🏠</button>
   </div>
 
   <div class="timer-body">
