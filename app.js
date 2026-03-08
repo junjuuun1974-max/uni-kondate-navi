@@ -1,37 +1,46 @@
 /**
- * app.js - Uni献立ナビ
- * iPad Kitchen Navigation Tool
+ * app.js - Uni献立ナビ v2
  *
- * ============================================================
- * 将来拡張メモ:
- * 1. 店舗別配信: APP_META.store_id でAPIエンドポイントを切り替え
- * 2. 日付別配信: APP_META.delivery_date で当日分のみフィルタリング
- * 3. 当日メニューのみ同期: is_today フラグをAPIで管理 → IndexedDB保存
- * 4. 画像URL管理: finish_photo_url / step.photo を CDN URL で管理し
- *    Service Workerでキャッシュ (CloudFront / Cloudflare Images + WebP)
- * 5. IndexedDB移行: loadMenus() を IndexedDB から読み込む形に差し替える
- * ============================================================
+ * 変更点:
+ * - 食事時間帯 (朝食/昼食/夕食/おやつ) によるフィルタリング追加
+ * - 日付表示: XX月XX日（曜日）形式
+ * - 各メニューに meal_times フィールド追加
+ * - 仕上がり写真: finish_photo_url があれば<img>表示
+ * - 工程画面: 1画面表示設計
+ *
+ * FUTURE: IndexedDB + API連携で本番移行
  */
 
 'use strict';
 
 /* ============================================================
-   アプリメタデータ
+   曜日 & 日付ユーティリティ
    ============================================================ */
-var APP_META = {
-  store_id:       'STORE-001',
-  delivery_date:  getTodayISO(),
-  synced_at:      null,
-  schema_version: 1
-};
+var WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'];
+
+function formatDateJa(date) {
+  var m   = date.getMonth() + 1;
+  var d   = date.getDate();
+  var w   = WEEKDAYS_JA[date.getDay()];
+  return m + '月' + d + '日（' + w + '）';
+}
 
 function getTodayISO() {
   return new Date().toISOString().split('T')[0];
 }
 
 /* ============================================================
+   食事時間帯マッピング
+   ============================================================ */
+var MEAL_TIME_LABELS = {
+  morning: { ja: '朝食', en: 'MORNING', icon: '🌅' },
+  lunch:   { ja: '昼食', en: 'LUNCH',   icon: '☀️' },
+  dinner:  { ja: '夕食', en: 'DINNER',  icon: '🌙' },
+  snack:   { ja: 'おやつ', en: 'SNACK', icon: '🍵' }
+};
+
+/* ============================================================
    作業種別アイコンマップ
-   非日本語話者が一目で作業内容を理解できるよう視覚的に表現
    ============================================================ */
 var STEP_TYPE_ICONS = {
   cut:       '🔪',
@@ -51,332 +60,301 @@ var STEP_TYPE_ICONS = {
 };
 
 function getStepIcon(step) {
-  if (step.step_type && STEP_TYPE_ICONS[step.step_type]) {
-    return STEP_TYPE_ICONS[step.step_type];
-  }
+  if (step.step_type && STEP_TYPE_ICONS[step.step_type]) return STEP_TYPE_ICONS[step.step_type];
   if (step.steam_con) return STEP_TYPE_ICONS['steam_con'];
   var d = (step.description || '') + ' ' + (step.description_en || '');
-  if (/切る|切り|刻む|カット|みじん|slice|cut|chop|dice|mince/i.test(d))   return STEP_TYPE_ICONS['cut'];
-  if (/炒める|炒め|揚げ|saute|stir.?fry|fry/i.test(d))                     return STEP_TYPE_ICONS['fry'];
-  if (/混ぜ|こね|捏ね|合わせ|mix|knead|combine|blend/i.test(d))             return STEP_TYPE_ICONS['mix'];
-  if (/スチコン|コンベクション|オーブン|convection/i.test(d))                return STEP_TYPE_ICONS['steam_con'];
-  if (/煮込む|煮る|simmer/i.test(d))                                         return STEP_TYPE_ICONS['simmer'];
-  if (/茹でる|下茹で|ゆで|boil|parboil/i.test(d))                           return STEP_TYPE_ICONS['boil'];
-  if (/焼く|焼き|グリル|bake|grill|roast/i.test(d))                         return STEP_TYPE_ICONS['bake'];
-  if (/蒸す|蒸し|steam/i.test(d))                                            return STEP_TYPE_ICONS['steam'];
-  if (/盛り付け|盛る|皿|plate|garnish|serve/i.test(d))                      return STEP_TYPE_ICONS['plate'];
-  if (/塩|醤油|みそ|みりん|砂糖|調味|味付け|season/i.test(d))               return STEP_TYPE_ICONS['season'];
-  if (/冷ます|冷却|cool/i.test(d))                                           return STEP_TYPE_ICONS['cool'];
-  if (/洗う|水洗い|wash/i.test(d))                                           return STEP_TYPE_ICONS['wash'];
+  if (/切る|切り|刻む|カット|みじん|cut|chop|dice|mince/i.test(d))    return STEP_TYPE_ICONS['cut'];
+  if (/炒める|炒め|揚げ|saute|stir.?fry|fry/i.test(d))               return STEP_TYPE_ICONS['fry'];
+  if (/混ぜ|こね|捏ね|合わせ|mix|knead|combine/i.test(d))             return STEP_TYPE_ICONS['mix'];
+  if (/スチコン|コンベクション|オーブン|convection/i.test(d))          return STEP_TYPE_ICONS['steam_con'];
+  if (/煮込む|simmer/i.test(d))                                        return STEP_TYPE_ICONS['simmer'];
+  if (/茹でる|下茹で|ゆで|boil|parboil/i.test(d))                     return STEP_TYPE_ICONS['boil'];
+  if (/焼く|焼き|グリル|bake|grill|roast/i.test(d))                   return STEP_TYPE_ICONS['bake'];
+  if (/蒸す|蒸し|steam/i.test(d))                                      return STEP_TYPE_ICONS['steam'];
+  if (/盛り付け|盛る|皿|plate|garnish|serve/i.test(d))               return STEP_TYPE_ICONS['plate'];
+  if (/塩|醤油|みそ|みりん|砂糖|調味|味付け|season/i.test(d))         return STEP_TYPE_ICONS['season'];
+  if (/冷ます|冷却|cool/i.test(d))                                     return STEP_TYPE_ICONS['cool'];
+  if (/洗う|water|wash/i.test(d))                                      return STEP_TYPE_ICONS['wash'];
   return STEP_TYPE_ICONS['default'];
 }
 
 /* ============================================================
    サンプルデータ
-   FUTURE: IndexedDB から読み込み（API同期後に保存されたデータ）
+   meal_times: 'morning' | 'lunch' | 'dinner' | 'snack' の配列
+   finish_photo_url: 本番では CDN URL を設定
+   FUTURE: API同期 → IndexedDB に保存 → ここから読み込む
    ============================================================ */
 var MENUS = [
   {
     id: 'M-00001', name: '肉じゃが', name_en: 'Nikujaga (Meat & Potato Stew)',
     category: '煮物', sub_category: '肉料理', food_category: '和食',
-    base_servings: 10, emoji: '🥩', is_today: true, finish_photo_url: null,
+    base_servings: 10, emoji: '🥩',
+    is_today: true,
+    meal_times: ['lunch', 'dinner'],
+    finish_photo_url: null,
     ingredients: [
-      { id: 'I001', name: '牛肉（薄切り）', name_en: 'Beef slices',       amount: 500, unit: 'g' },
-      { id: 'I002', name: 'じゃがいも',     name_en: 'Potato',            amount: 800, unit: 'g' },
-      { id: 'I003', name: '玉ねぎ',         name_en: 'Onion',             amount: 300, unit: 'g' },
-      { id: 'I004', name: 'にんじん',       name_en: 'Carrot',            amount: 200, unit: 'g' },
-      { id: 'I005', name: 'しらたき',       name_en: 'Shirataki noodles', amount: 200, unit: 'g' },
-      { id: 'I006', name: 'だし汁',         name_en: 'Dashi stock',       amount: 600, unit: 'ml' },
-      { id: 'I007', name: '砂糖',           name_en: 'Sugar',             amount:  40, unit: 'g' },
-      { id: 'I008', name: 'みりん',         name_en: 'Mirin',             amount:  60, unit: 'ml' },
-      { id: 'I009', name: '醤油',           name_en: 'Soy sauce',         amount:  80, unit: 'ml' }
+      { id:'I001', name:'牛肉（薄切り）', name_en:'Beef slices',       amount:500,  unit:'g'  },
+      { id:'I002', name:'じゃがいも',     name_en:'Potato',            amount:800,  unit:'g'  },
+      { id:'I003', name:'玉ねぎ',         name_en:'Onion',             amount:300,  unit:'g'  },
+      { id:'I004', name:'にんじん',       name_en:'Carrot',            amount:200,  unit:'g'  },
+      { id:'I005', name:'しらたき',       name_en:'Shirataki noodles', amount:200,  unit:'g'  },
+      { id:'I006', name:'だし汁',         name_en:'Dashi stock',       amount:600,  unit:'ml' },
+      { id:'I007', name:'砂糖',           name_en:'Sugar',             amount:40,   unit:'g'  },
+      { id:'I008', name:'みりん',         name_en:'Mirin',             amount:60,   unit:'ml' },
+      { id:'I009', name:'醤油',           name_en:'Soy sauce',         amount:80,   unit:'ml' }
     ],
     steps: [
-      {
-        id: 'S001', step_number: 1, step_type: 'cut', photo: null,
-        description: '牛肉・じゃがいも・玉ねぎ・にんじんを一口大に切る。しらたきは下茹でする。',
-        description_en: 'Cut beef, potatoes, onions, and carrots into bite-sized pieces. Parboil shirataki noodles.',
-        ingredients: [
-          { name: '牛肉（薄切り）', name_en: 'Beef',    amount: 500, unit: 'g' },
-          { name: 'じゃがいも',     name_en: 'Potato',  amount: 800, unit: 'g' },
-          { name: '玉ねぎ',         name_en: 'Onion',   amount: 300, unit: 'g' },
-          { name: 'にんじん',       name_en: 'Carrot',  amount: 200, unit: 'g' },
-          { name: 'しらたき',       name_en: 'Shirat.',  amount: 200, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S002', step_number: 2, step_type: 'fry', photo: null,
-        description: '鍋を熱し、牛肉を炒める。色が変わったら玉ねぎ・にんじんを加えてさらに炒める。',
-        description_en: 'Heat pot, stir-fry beef until color changes. Add onions and carrots, continue sauteing.',
-        ingredients: [
-          { name: '牛肉（薄切り）', name_en: 'Beef',  amount: 500, unit: 'g' },
-          { name: '玉ねぎ',         name_en: 'Onion', amount: 300, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S003', step_number: 3, step_type: 'simmer', photo: null,
-        description: 'だし汁・砂糖・みりんを加え、沸騰したらじゃがいも・しらたきを加える。',
-        description_en: 'Add dashi stock, sugar, and mirin. When boiling, add potatoes and shirataki.',
-        ingredients: [
-          { name: 'だし汁',   name_en: 'Dashi',  amount: 600, unit: 'ml' },
-          { name: '砂糖',     name_en: 'Sugar',  amount:  40, unit: 'g' },
-          { name: 'みりん',   name_en: 'Mirin',  amount:  60, unit: 'ml' },
-          { name: 'じゃがいも', name_en: 'Potato', amount: 800, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S004', step_number: 4, step_type: 'steam_con', photo: null,
-        description: 'スチコンで加熱する（スチームモード・100℃・20分）。',
-        description_en: 'Cook in steam convection oven (Steam mode, 100C, 20 min).',
-        ingredients: [],
-        steam_con: { mode: 'steam', mode_label: 'スチーム', temperature: 100, timer_minutes: 20, steam: 100, hot_air: 0 },
-        timer_minutes: 20
-      },
-      {
-        id: 'S005', step_number: 5, step_type: 'season', photo: null,
-        description: '醤油を加えてさらに5分煮る。じゃがいもに火が通ったら完成。',
-        description_en: 'Add soy sauce and simmer 5 more minutes. Done when potatoes are tender.',
-        ingredients: [
-          { name: '醤油', name_en: 'Soy sauce', amount: 80, unit: 'ml' }
-        ],
-        steam_con: null, timer_minutes: 5
-      }
+      { id:'S001', step_number:1, step_type:'cut', photo:null,
+        description:'牛肉・じゃがいも・玉ねぎ・にんじんを一口大に切る。しらたきは下茹でする。',
+        description_en:'Cut beef, potatoes, onions, carrots into bite-sized pieces. Parboil shirataki.',
+        ingredients:[
+          {name:'牛肉',name_en:'Beef',amount:500,unit:'g'},
+          {name:'じゃがいも',name_en:'Potato',amount:800,unit:'g'},
+          {name:'玉ねぎ',name_en:'Onion',amount:300,unit:'g'},
+          {name:'にんじん',name_en:'Carrot',amount:200,unit:'g'}
+        ], steam_con:null, timer_minutes:null },
+      { id:'S002', step_number:2, step_type:'fry', photo:null,
+        description:'鍋を熱し、牛肉を炒める。色が変わったら玉ねぎ・にんじんを加えて炒める。',
+        description_en:'Heat pot, stir-fry beef. Add onions and carrots, continue sauteing.',
+        ingredients:[
+          {name:'牛肉',name_en:'Beef',amount:500,unit:'g'},
+          {name:'玉ねぎ',name_en:'Onion',amount:300,unit:'g'}
+        ], steam_con:null, timer_minutes:null },
+      { id:'S003', step_number:3, step_type:'simmer', photo:null,
+        description:'だし汁・砂糖・みりんを加え、沸騰後にじゃがいも・しらたきを加える。',
+        description_en:'Add dashi, sugar, mirin. After boiling, add potatoes and shirataki.',
+        ingredients:[
+          {name:'だし汁',name_en:'Dashi',amount:600,unit:'ml'},
+          {name:'砂糖',name_en:'Sugar',amount:40,unit:'g'},
+          {name:'みりん',name_en:'Mirin',amount:60,unit:'ml'}
+        ], steam_con:null, timer_minutes:null },
+      { id:'S004', step_number:4, step_type:'steam_con', photo:null,
+        description:'スチコンで加熱する（スチームモード・100℃・20分）。',
+        description_en:'Steam convection oven: Steam mode, 100C, 20 min.',
+        ingredients:[],
+        steam_con:{mode:'steam',mode_label:'スチーム',temperature:100,timer_minutes:20,steam:100,hot_air:0},
+        timer_minutes:20 },
+      { id:'S005', step_number:5, step_type:'season', photo:null,
+        description:'醤油を加えて5分煮る。じゃがいもに火が通ったら完成。',
+        description_en:'Add soy sauce, simmer 5 min. Done when potatoes are tender.',
+        ingredients:[{name:'醤油',name_en:'Soy sauce',amount:80,unit:'ml'}],
+        steam_con:null, timer_minutes:5 }
     ]
   },
   {
-    id: 'M-00042', name: 'クリームシチュー', name_en: 'Cream Stew',
-    category: '煮物', sub_category: '洋風', food_category: '洋食',
-    base_servings: 10, emoji: '🍲', is_today: true, finish_photo_url: null,
-    ingredients: [
-      { id: 'I101', name: '鶏もも肉',     name_en: 'Chicken thigh', amount: 600, unit: 'g' },
-      { id: 'I102', name: 'じゃがいも',   name_en: 'Potato',        amount: 700, unit: 'g' },
-      { id: 'I103', name: 'にんじん',     name_en: 'Carrot',        amount: 200, unit: 'g' },
-      { id: 'I104', name: '玉ねぎ',       name_en: 'Onion',         amount: 300, unit: 'g' },
-      { id: 'I105', name: 'ブロッコリー', name_en: 'Broccoli',      amount: 300, unit: 'g' },
-      { id: 'I106', name: '牛乳',         name_en: 'Milk',          amount: 800, unit: 'ml' },
-      { id: 'I107', name: '生クリーム',   name_en: 'Heavy cream',   amount: 200, unit: 'ml' },
-      { id: 'I108', name: '小麦粉',       name_en: 'Flour',         amount:  60, unit: 'g' },
-      { id: 'I109', name: 'バター',       name_en: 'Butter',        amount:  50, unit: 'g' }
+    id:'M-00042', name:'クリームシチュー', name_en:'Cream Stew',
+    category:'煮物', sub_category:'洋風', food_category:'洋食',
+    base_servings:10, emoji:'🍲', is_today:true, meal_times:['lunch','dinner'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I101',name:'鶏もも肉',     name_en:'Chicken thigh',amount:600,unit:'g'},
+      {id:'I102',name:'じゃがいも',   name_en:'Potato',       amount:700,unit:'g'},
+      {id:'I103',name:'にんじん',     name_en:'Carrot',       amount:200,unit:'g'},
+      {id:'I104',name:'玉ねぎ',       name_en:'Onion',        amount:300,unit:'g'},
+      {id:'I105',name:'ブロッコリー', name_en:'Broccoli',     amount:300,unit:'g'},
+      {id:'I106',name:'牛乳',         name_en:'Milk',         amount:800,unit:'ml'},
+      {id:'I107',name:'生クリーム',   name_en:'Heavy cream',  amount:200,unit:'ml'},
+      {id:'I108',name:'小麦粉',       name_en:'Flour',        amount:60, unit:'g'},
+      {id:'I109',name:'バター',       name_en:'Butter',       amount:50, unit:'g'}
     ],
-    steps: [
-      {
-        id: 'S101', step_number: 1, step_type: 'cut', photo: null,
-        description: '鶏肉・野菜を一口大に切る。ブロッコリーは小房に分けておく。',
-        description_en: 'Cut chicken and vegetables into bite-sized pieces. Separate broccoli into small florets.',
-        ingredients: [
-          { name: '鶏もも肉', name_en: 'Chicken', amount: 600, unit: 'g' },
-          { name: '野菜類',   name_en: 'Veg',     amount: 1200, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S102', step_number: 2, step_type: 'mix', photo: null,
-        description: 'バターを溶かし、小麦粉を加えてよく炒める（ルー作り）。牛乳を少しずつ加えてのばす。',
-        description_en: 'Melt butter, add flour and stir to make roux. Gradually add milk and mix until smooth.',
-        ingredients: [
-          { name: 'バター',   name_en: 'Butter', amount:  50, unit: 'g' },
-          { name: '小麦粉',   name_en: 'Flour',  amount:  60, unit: 'g' },
-          { name: '牛乳',     name_en: 'Milk',   amount: 800, unit: 'ml' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S103', step_number: 3, step_type: 'steam_con', photo: null,
-        description: '鶏肉・野菜とルーを合わせてスチコンで加熱する（コンビ160℃・25分）。',
-        description_en: 'Combine chicken, vegetables and roux. Cook in steam oven (Combi, 160C, 25 min).',
-        ingredients: [],
-        steam_con: { mode: 'combi', mode_label: 'コンビ', temperature: 160, timer_minutes: 25, steam: 30, hot_air: 70 },
-        timer_minutes: 25
-      },
-      {
-        id: 'S104', step_number: 4, step_type: 'season', photo: null,
-        description: '生クリームを加えてひと煮立ちさせ、塩・こしょうで味を整える。',
-        description_en: 'Add heavy cream and bring to a brief boil. Season with salt and pepper.',
-        ingredients: [
-          { name: '生クリーム', name_en: 'Cream', amount: 200, unit: 'ml' }
-        ],
-        steam_con: null, timer_minutes: null
-      }
+    steps:[
+      {id:'S101',step_number:1,step_type:'cut',photo:null,
+       description:'鶏肉・野菜を一口大に切る。ブロッコリーは小房に分ける。',
+       description_en:'Cut chicken and vegetables. Separate broccoli into florets.',
+       ingredients:[{name:'鶏もも肉',name_en:'Chicken',amount:600,unit:'g'},{name:'野菜類',name_en:'Veg',amount:1200,unit:'g'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S102',step_number:2,step_type:'mix',photo:null,
+       description:'バターを溶かし、小麦粉を炒める（ルー作り）。牛乳を少しずつ加える。',
+       description_en:'Melt butter, stir flour to make roux. Add milk gradually.',
+       ingredients:[{name:'バター',name_en:'Butter',amount:50,unit:'g'},{name:'小麦粉',name_en:'Flour',amount:60,unit:'g'},{name:'牛乳',name_en:'Milk',amount:800,unit:'ml'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S103',step_number:3,step_type:'steam_con',photo:null,
+       description:'鶏肉・野菜とルーを合わせてスチコンで加熱（コンビ160℃・25分）。',
+       description_en:'Combine all. Steam oven: Combi mode, 160C, 25 min.',
+       ingredients:[],
+       steam_con:{mode:'combi',mode_label:'コンビ',temperature:160,timer_minutes:25,steam:30,hot_air:70},
+       timer_minutes:25},
+      {id:'S104',step_number:4,step_type:'season',photo:null,
+       description:'生クリームを加えてひと煮立ちさせ、塩・こしょうで調味する。',
+       description_en:'Add heavy cream, bring to boil. Season with salt and pepper.',
+       ingredients:[{name:'生クリーム',name_en:'Cream',amount:200,unit:'ml'}],
+       steam_con:null,timer_minutes:null}
     ]
   },
   {
-    id: 'M-00107', name: '麻婆豆腐', name_en: 'Mapo Tofu',
-    category: '炒め物', sub_category: '豆腐料理', food_category: '中華',
-    base_servings: 10, emoji: '🌶️', is_today: true, finish_photo_url: null,
-    ingredients: [
-      { id: 'I201', name: '木綿豆腐',     name_en: 'Firm tofu',     amount: 1000, unit: 'g' },
-      { id: 'I202', name: '豚ひき肉',     name_en: 'Ground pork',   amount:  300, unit: 'g' },
-      { id: 'I203', name: '長ねぎ',       name_en: 'Green onion',   amount:  150, unit: 'g' },
-      { id: 'I204', name: 'にんにく',     name_en: 'Garlic',        amount:   20, unit: 'g' },
-      { id: 'I205', name: '豆板醤',       name_en: 'Doubanjiang',   amount:   30, unit: 'g' },
-      { id: 'I206', name: '甜麺醤',       name_en: 'Tianmianjiang', amount:   20, unit: 'g' },
-      { id: 'I207', name: '鶏がらスープ', name_en: 'Chicken stock', amount:  400, unit: 'ml' },
-      { id: 'I208', name: '片栗粉',       name_en: 'Potato starch', amount:   20, unit: 'g' },
-      { id: 'I209', name: 'ごま油',       name_en: 'Sesame oil',    amount:   15, unit: 'ml' }
+    id:'M-00107', name:'麻婆豆腐', name_en:'Mapo Tofu',
+    category:'炒め物', sub_category:'豆腐料理', food_category:'中華',
+    base_servings:10, emoji:'🌶️', is_today:true, meal_times:['lunch','dinner'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I201',name:'木綿豆腐',     name_en:'Firm tofu',    amount:1000,unit:'g'},
+      {id:'I202',name:'豚ひき肉',     name_en:'Ground pork',  amount:300, unit:'g'},
+      {id:'I203',name:'長ねぎ',       name_en:'Green onion',  amount:150, unit:'g'},
+      {id:'I204',name:'にんにく',     name_en:'Garlic',       amount:20,  unit:'g'},
+      {id:'I205',name:'豆板醤',       name_en:'Doubanjiang',  amount:30,  unit:'g'},
+      {id:'I206',name:'甜麺醤',       name_en:'Tianmianjiang',amount:20,  unit:'g'},
+      {id:'I207',name:'鶏がらスープ', name_en:'Chicken stock',amount:400, unit:'ml'},
+      {id:'I208',name:'片栗粉',       name_en:'Starch',       amount:20,  unit:'g'},
+      {id:'I209',name:'ごま油',       name_en:'Sesame oil',   amount:15,  unit:'ml'}
     ],
-    steps: [
-      {
-        id: 'S201', step_number: 1, step_type: 'prep', photo: null,
-        description: '豆腐を2cm角に切り、熱湯で下茹で（2分）。にんにく・長ねぎはみじん切り。',
-        description_en: 'Cut tofu into 2cm cubes and parboil 2 min. Mince garlic and green onion.',
-        ingredients: [
-          { name: '木綿豆腐', name_en: 'Tofu',  amount: 1000, unit: 'g' },
-          { name: 'にんにく', name_en: 'Garlic', amount:   20, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: 2
-      },
-      {
-        id: 'S202', step_number: 2, step_type: 'fry', photo: null,
-        description: '油を熱し豆板醤・甜麺醤・にんにくを炒める。香りが出たら豚ひき肉を加えて炒める。',
-        description_en: 'Heat oil, stir-fry doubanjiang, tianmianjiang and garlic. Add ground pork and stir-fry.',
-        ingredients: [
-          { name: '豚ひき肉', name_en: 'Pork',    amount: 300, unit: 'g' },
-          { name: '豆板醤',   name_en: 'Doubanjg', amount:  30, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S203', step_number: 3, step_type: 'season', photo: null,
-        description: '鶏がらスープを加え、豆腐を入れて煮る。片栗粉でとろみをつけ、ごま油を回しかける。',
-        description_en: 'Add chicken stock and tofu, simmer. Thicken with starch, drizzle sesame oil.',
-        ingredients: [
-          { name: '鶏がらスープ', name_en: 'Stock',       amount: 400, unit: 'ml' },
-          { name: '片栗粉',       name_en: 'Starch',      amount:  20, unit: 'g' },
-          { name: 'ごま油',       name_en: 'Sesame oil',  amount:  15, unit: 'ml' }
-        ],
-        steam_con: null, timer_minutes: null
-      }
+    steps:[
+      {id:'S201',step_number:1,step_type:'prep',photo:null,
+       description:'豆腐を2cm角に切り熱湯で下茹で（2分）。にんにく・長ねぎはみじん切り。',
+       description_en:'Cut tofu into 2cm cubes, parboil 2 min. Mince garlic and green onion.',
+       ingredients:[{name:'木綿豆腐',name_en:'Tofu',amount:1000,unit:'g'},{name:'にんにく',name_en:'Garlic',amount:20,unit:'g'}],
+       steam_con:null,timer_minutes:2},
+      {id:'S202',step_number:2,step_type:'fry',photo:null,
+       description:'油で豆板醤・甜麺醤・にんにくを炒める。香りが出たら豚ひき肉を加える。',
+       description_en:'Stir-fry doubanjiang, tianmianjiang, garlic. Add ground pork.',
+       ingredients:[{name:'豚ひき肉',name_en:'Pork',amount:300,unit:'g'},{name:'豆板醤',name_en:'Doubanjiang',amount:30,unit:'g'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S203',step_number:3,step_type:'season',photo:null,
+       description:'スープを加え豆腐を入れて煮る。片栗粉でとろみをつけごま油を回しかける。',
+       description_en:'Add stock and tofu, simmer. Thicken with starch, drizzle sesame oil.',
+       ingredients:[{name:'鶏がらスープ',name_en:'Stock',amount:400,unit:'ml'},{name:'片栗粉',name_en:'Starch',amount:20,unit:'g'},{name:'ごま油',name_en:'Sesame oil',amount:15,unit:'ml'}],
+       steam_con:null,timer_minutes:null}
     ]
   },
   {
-    id: 'M-00215', name: '鮭の塩焼き', name_en: 'Grilled Salted Salmon',
-    category: '焼き物', sub_category: '魚料理', food_category: '和食',
-    base_servings: 10, emoji: '🐟', is_today: false, finish_photo_url: null,
-    ingredients: [
-      { id: 'I301', name: '鮭切り身', name_en: 'Salmon fillet', amount: 1000, unit: 'g' },
-      { id: 'I302', name: '塩',       name_en: 'Salt',          amount:   15, unit: 'g' },
-      { id: 'I303', name: 'レモン',   name_en: 'Lemon',         amount:    2, unit: '個' }
+    id:'M-00215', name:'鮭の塩焼き', name_en:'Grilled Salted Salmon',
+    category:'焼き物', sub_category:'魚料理', food_category:'和食',
+    base_servings:10, emoji:'🐟', is_today:false, meal_times:['lunch','dinner'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I301',name:'鮭切り身',name_en:'Salmon fillet',amount:1000,unit:'g'},
+      {id:'I302',name:'塩',      name_en:'Salt',          amount:15,  unit:'g'},
+      {id:'I303',name:'レモン',  name_en:'Lemon',         amount:2,   unit:'個'}
     ],
-    steps: [
-      {
-        id: 'S301', step_number: 1, step_type: 'season', photo: null,
-        description: '鮭の両面に塩を振り、15分置いて水分をペーパーで拭き取る。',
-        description_en: 'Season salmon with salt on both sides. Rest 15 min, then pat dry with paper.',
-        ingredients: [
-          { name: '鮭切り身', name_en: 'Salmon', amount: 1000, unit: 'g' },
-          { name: '塩',       name_en: 'Salt',   amount:   15, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: 15
-      },
-      {
-        id: 'S302', step_number: 2, step_type: 'steam_con', photo: null,
-        description: 'スチコンで焼く（ホットエアー220℃・12分）。皮目をパリッと仕上げる。',
-        description_en: 'Cook in steam oven (Hot Air, 220C, 12 min) for crispy skin.',
-        ingredients: [],
-        steam_con: { mode: 'hot_air', mode_label: 'ホットエアー', temperature: 220, timer_minutes: 12, steam: 0, hot_air: 100 },
-        timer_minutes: 12
-      },
-      {
-        id: 'S303', step_number: 3, step_type: 'plate', photo: null,
-        description: '器に盛り付け、レモンを添えて完成。',
-        description_en: 'Plate salmon and garnish with lemon wedges.',
-        ingredients: [
-          { name: 'レモン', name_en: 'Lemon', amount: 2, unit: '個' }
-        ],
-        steam_con: null, timer_minutes: null
-      }
+    steps:[
+      {id:'S301',step_number:1,step_type:'season',photo:null,
+       description:'鮭の両面に塩を振り、15分置いて水分を拭き取る。',
+       description_en:'Season salmon with salt on both sides. Rest 15 min, pat dry.',
+       ingredients:[{name:'鮭切り身',name_en:'Salmon',amount:1000,unit:'g'},{name:'塩',name_en:'Salt',amount:15,unit:'g'}],
+       steam_con:null,timer_minutes:15},
+      {id:'S302',step_number:2,step_type:'steam_con',photo:null,
+       description:'スチコンで焼く（ホットエアー220℃・12分）。',
+       description_en:'Steam oven: Hot Air mode, 220C, 12 min.',
+       ingredients:[],
+       steam_con:{mode:'hot_air',mode_label:'ホットエアー',temperature:220,timer_minutes:12,steam:0,hot_air:100},
+       timer_minutes:12},
+      {id:'S303',step_number:3,step_type:'plate',photo:null,
+       description:'器に盛り付け、レモンを添えて完成。',
+       description_en:'Plate salmon and garnish with lemon wedges.',
+       ingredients:[{name:'レモン',name_en:'Lemon',amount:2,unit:'個'}],
+       steam_con:null,timer_minutes:null}
     ]
   },
   {
-    id: 'M-00303', name: '豚汁', name_en: 'Tonjiru (Pork Miso Soup)',
-    category: '汁物', sub_category: '味噌汁', food_category: '和食',
-    base_servings: 10, emoji: '🍜', is_today: false, finish_photo_url: null,
-    ingredients: [
-      { id: 'I401', name: '豚バラ肉', name_en: 'Pork belly',   amount:  300, unit: 'g' },
-      { id: 'I402', name: '大根',     name_en: 'Daikon',        amount:  400, unit: 'g' },
-      { id: 'I403', name: 'にんじん', name_en: 'Carrot',        amount:  150, unit: 'g' },
-      { id: 'I404', name: 'ごぼう',   name_en: 'Burdock',       amount:  100, unit: 'g' },
-      { id: 'I405', name: 'こんにゃく', name_en: 'Konnyaku',   amount:  150, unit: 'g' },
-      { id: 'I406', name: 'みそ',     name_en: 'Miso paste',    amount:  120, unit: 'g' },
-      { id: 'I407', name: 'だし汁',   name_en: 'Dashi stock',   amount: 1500, unit: 'ml' }
+    id:'M-00303', name:'豚汁', name_en:'Tonjiru (Pork Miso Soup)',
+    category:'汁物', sub_category:'味噌汁', food_category:'和食',
+    base_servings:10, emoji:'🍜', is_today:true, meal_times:['morning','lunch','dinner'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I401',name:'豚バラ肉', name_en:'Pork belly',  amount:300, unit:'g'},
+      {id:'I402',name:'大根',     name_en:'Daikon',       amount:400, unit:'g'},
+      {id:'I403',name:'にんじん', name_en:'Carrot',       amount:150, unit:'g'},
+      {id:'I404',name:'ごぼう',   name_en:'Burdock',      amount:100, unit:'g'},
+      {id:'I405',name:'こんにゃく',name_en:'Konnyaku',    amount:150, unit:'g'},
+      {id:'I406',name:'みそ',     name_en:'Miso paste',   amount:120, unit:'g'},
+      {id:'I407',name:'だし汁',   name_en:'Dashi stock',  amount:1500,unit:'ml'}
     ],
-    steps: [
-      {
-        id: 'S401', step_number: 1, step_type: 'cut', photo: null,
-        description: '豚肉・大根・にんじん・ごぼうを一口大に切る。こんにゃくは手でちぎって下茹でする。',
-        description_en: 'Cut pork and vegetables into pieces. Tear konnyaku by hand and parboil.',
-        ingredients: [
-          { name: '豚バラ肉', name_en: 'Pork',     amount: 300, unit: 'g' },
-          { name: '野菜類',   name_en: 'Veg',      amount: 800, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S402', step_number: 2, step_type: 'simmer', photo: null,
-        description: '油で豚肉を炒め、野菜を加えてさらに炒める。だし汁を加えて15分煮る。',
-        description_en: 'Stir-fry pork, add vegetables, pour dashi and simmer 15 min.',
-        ingredients: [
-          { name: 'だし汁', name_en: 'Dashi', amount: 1500, unit: 'ml' }
-        ],
-        steam_con: null, timer_minutes: 15
-      },
-      {
-        id: 'S403', step_number: 3, step_type: 'season', photo: null,
-        description: '野菜が柔らかくなったら火を止めてみそを溶き入れる。',
-        description_en: 'When vegetables are tender, remove from heat and dissolve miso.',
-        ingredients: [
-          { name: 'みそ', name_en: 'Miso', amount: 120, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      }
+    steps:[
+      {id:'S401',step_number:1,step_type:'cut',photo:null,
+       description:'豚肉・大根・にんじん・ごぼうを切る。こんにゃくは手でちぎり下茹でする。',
+       description_en:'Cut pork and vegetables. Tear konnyaku by hand and parboil.',
+       ingredients:[{name:'豚バラ肉',name_en:'Pork',amount:300,unit:'g'},{name:'野菜類',name_en:'Veg',amount:800,unit:'g'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S402',step_number:2,step_type:'simmer',photo:null,
+       description:'豚肉を炒め、野菜を加えてだし汁で15分煮込む。',
+       description_en:'Stir-fry pork, add vegetables, pour dashi and simmer 15 min.',
+       ingredients:[{name:'だし汁',name_en:'Dashi',amount:1500,unit:'ml'}],
+       steam_con:null,timer_minutes:15},
+      {id:'S403',step_number:3,step_type:'season',photo:null,
+       description:'野菜が柔らかくなったら火を止めてみそを溶き入れる。',
+       description_en:'When tender, remove from heat and dissolve miso.',
+       ingredients:[{name:'みそ',name_en:'Miso',amount:120,unit:'g'}],
+       steam_con:null,timer_minutes:null}
     ]
   },
   {
-    id: 'M-00412', name: 'ハンバーグ', name_en: 'Hamburg Steak',
-    category: '焼き物', sub_category: '肉料理', food_category: '洋食',
-    base_servings: 10, emoji: '🍔', is_today: true, finish_photo_url: null,
-    ingredients: [
-      { id: 'I501', name: '合い挽き肉',   name_en: 'Mixed ground meat', amount: 800, unit: 'g' },
-      { id: 'I502', name: '玉ねぎ',       name_en: 'Onion (minced)',    amount: 300, unit: 'g' },
-      { id: 'I503', name: 'パン粉',       name_en: 'Breadcrumbs',      amount:  80, unit: 'g' },
-      { id: 'I504', name: '牛乳',         name_en: 'Milk',             amount: 100, unit: 'ml' },
-      { id: 'I505', name: '卵',           name_en: 'Eggs',             amount:   2, unit: '個' },
-      { id: 'I506', name: 'ナツメグ',     name_en: 'Nutmeg',           amount:   2, unit: 'g' }
+    id:'M-00412', name:'ハンバーグ', name_en:'Hamburg Steak',
+    category:'焼き物', sub_category:'肉料理', food_category:'洋食',
+    base_servings:10, emoji:'🍔', is_today:true, meal_times:['lunch','dinner'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I501',name:'合い挽き肉', name_en:'Mixed ground meat',amount:800,unit:'g'},
+      {id:'I502',name:'玉ねぎ',     name_en:'Onion (minced)',  amount:300,unit:'g'},
+      {id:'I503',name:'パン粉',     name_en:'Breadcrumbs',     amount:80, unit:'g'},
+      {id:'I504',name:'牛乳',       name_en:'Milk',            amount:100,unit:'ml'},
+      {id:'I505',name:'卵',         name_en:'Eggs',            amount:2,  unit:'個'},
+      {id:'I506',name:'ナツメグ',   name_en:'Nutmeg',          amount:2,  unit:'g'}
     ],
-    steps: [
-      {
-        id: 'S501', step_number: 1, step_type: 'fry', photo: null,
-        description: '玉ねぎをみじん切りにして炒め、冷ます。パン粉を牛乳に浸しておく。',
-        description_en: 'Mince onion and saute until soft, then cool. Soak breadcrumbs in milk.',
-        ingredients: [
-          { name: '玉ねぎ', name_en: 'Onion',       amount: 300, unit: 'g' },
-          { name: 'パン粉', name_en: 'Breadcrumbs', amount:  80, unit: 'g' },
-          { name: '牛乳',   name_en: 'Milk',        amount: 100, unit: 'ml' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S502', step_number: 2, step_type: 'mix', photo: null,
-        description: 'ひき肉・玉ねぎ・パン粉・卵・ナツメグをよく捏ねて10等分に成形する。',
-        description_en: 'Mix all ingredients thoroughly and shape into 10 patties.',
-        ingredients: [
-          { name: '合い挽き肉', name_en: 'Meat',    amount: 800, unit: 'g' },
-          { name: '卵',         name_en: 'Eggs',    amount:   2, unit: '個' },
-          { name: 'ナツメグ',   name_en: 'Nutmeg',  amount:   2, unit: 'g' }
-        ],
-        steam_con: null, timer_minutes: null
-      },
-      {
-        id: 'S503', step_number: 3, step_type: 'steam_con', photo: null,
-        description: 'フライパンで表面を焼いてから、スチコンで中まで火を通す（コンビ180℃・15分）。',
-        description_en: 'Sear patties in pan, then finish in steam oven (Combi, 180C, 15 min).',
-        ingredients: [],
-        steam_con: { mode: 'combi', mode_label: 'コンビ', temperature: 180, timer_minutes: 15, steam: 30, hot_air: 70 },
-        timer_minutes: 15
-      }
+    steps:[
+      {id:'S501',step_number:1,step_type:'fry',photo:null,
+       description:'玉ねぎをみじん切りにして炒め、冷ます。パン粉を牛乳に浸す。',
+       description_en:'Mince onion and saute until soft, cool. Soak breadcrumbs in milk.',
+       ingredients:[{name:'玉ねぎ',name_en:'Onion',amount:300,unit:'g'},{name:'パン粉',name_en:'Breadcrumbs',amount:80,unit:'g'},{name:'牛乳',name_en:'Milk',amount:100,unit:'ml'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S502',step_number:2,step_type:'mix',photo:null,
+       description:'ひき肉・玉ねぎ・パン粉・卵・ナツメグをよく捏ねて10等分に成形。',
+       description_en:'Mix all ingredients thoroughly, shape into 10 patties.',
+       ingredients:[{name:'合い挽き肉',name_en:'Meat',amount:800,unit:'g'},{name:'卵',name_en:'Eggs',amount:2,unit:'個'},{name:'ナツメグ',name_en:'Nutmeg',amount:2,unit:'g'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S503',step_number:3,step_type:'steam_con',photo:null,
+       description:'フライパンで表面を焼いてからスチコンで仕上げる（コンビ180℃・15分）。',
+       description_en:'Sear in pan, finish in steam oven: Combi 180C, 15 min.',
+       ingredients:[],
+       steam_con:{mode:'combi',mode_label:'コンビ',temperature:180,timer_minutes:15,steam:30,hot_air:70},
+       timer_minutes:15}
+    ]
+  },
+  {
+    id:'M-00501', name:'野菜スープ', name_en:'Vegetable Soup',
+    category:'汁物', sub_category:'スープ', food_category:'洋食',
+    base_servings:10, emoji:'🥣', is_today:true, meal_times:['morning'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I601',name:'玉ねぎ',   name_en:'Onion',  amount:300,unit:'g'},
+      {id:'I602',name:'にんじん', name_en:'Carrot', amount:200,unit:'g'},
+      {id:'I603',name:'セロリ',   name_en:'Celery', amount:100,unit:'g'},
+      {id:'I604',name:'コンソメ', name_en:'Consomme',amount:4, unit:'個'},
+      {id:'I605',name:'水',       name_en:'Water',  amount:2000,unit:'ml'}
+    ],
+    steps:[
+      {id:'S601',step_number:1,step_type:'cut',photo:null,
+       description:'玉ねぎ・にんじん・セロリを一口大に切る。',
+       description_en:'Cut onion, carrot, celery into bite-sized pieces.',
+       ingredients:[{name:'玉ねぎ',name_en:'Onion',amount:300,unit:'g'},{name:'にんじん',name_en:'Carrot',amount:200,unit:'g'},{name:'セロリ',name_en:'Celery',amount:100,unit:'g'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S602',step_number:2,step_type:'simmer',photo:null,
+       description:'水・コンソメを加え、野菜が柔らかくなるまで20分煮る。',
+       description_en:'Add water and consomme, simmer 20 min until vegetables are soft.',
+       ingredients:[{name:'水',name_en:'Water',amount:2000,unit:'ml'},{name:'コンソメ',name_en:'Consomme',amount:4,unit:'個'}],
+       steam_con:null,timer_minutes:20}
+    ]
+  },
+  {
+    id:'M-00601', name:'フルーツゼリー', name_en:'Fruit Jelly',
+    category:'副菜', sub_category:'デザート', food_category:'洋食',
+    base_servings:10, emoji:'🍮', is_today:true, meal_times:['snack'],
+    finish_photo_url:null,
+    ingredients:[
+      {id:'I701',name:'ゼラチン', name_en:'Gelatin',amount:20,unit:'g'},
+      {id:'I702',name:'果物缶詰', name_en:'Canned fruit',amount:2,unit:'缶'},
+      {id:'I703',name:'砂糖',     name_en:'Sugar',amount:60,unit:'g'},
+      {id:'I704',name:'水',       name_en:'Water',amount:800,unit:'ml'}
+    ],
+    steps:[
+      {id:'S701',step_number:1,step_type:'mix',photo:null,
+       description:'ゼラチンを水でふやかす。鍋で水・砂糖を温め、ゼラチンを溶かす。',
+       description_en:'Soak gelatin in water. Heat water and sugar, dissolve gelatin.',
+       ingredients:[{name:'ゼラチン',name_en:'Gelatin',amount:20,unit:'g'},{name:'砂糖',name_en:'Sugar',amount:60,unit:'g'},{name:'水',name_en:'Water',amount:800,unit:'ml'}],
+       steam_con:null,timer_minutes:null},
+      {id:'S702',step_number:2,step_type:'cool',photo:null,
+       description:'果物缶詰を器に盛り、ゼリー液を注いで冷蔵庫で2時間冷やす。',
+       description_en:'Place fruit in cups, pour jelly liquid. Refrigerate 2 hours.',
+       ingredients:[{name:'果物缶詰',name_en:'Canned fruit',amount:2,unit:'缶'}],
+       steam_con:null,timer_minutes:null}
     ]
   }
 ];
@@ -385,16 +363,17 @@ var MENUS = [
    アプリ状態
    ============================================================ */
 var state = {
-  currentScreen:    'home',
-  screenHistory:    [],
-  selectedMenu:     null,
-  currentServings:  10,
-  currentStepIndex: 0,
-  filterCuisine:    'all',
-  filterCategory:   'all',
-  timerInterval:    null,
-  timerRemaining:   0,
-  timerTotal:       0
+  currentScreen:     'home',
+  screenHistory:     [],
+  selectedMenu:      null,
+  currentServings:   10,
+  currentStepIndex:  0,
+  selectedMealTime:  null,
+  filterCuisine:     'all',
+  filterCategory:    'all',
+  timerInterval:     null,
+  timerRemaining:    0,
+  timerTotal:        0
 };
 
 var RING_CIRC = 2 * Math.PI * 110; /* 691.15 */
@@ -414,18 +393,16 @@ if ('serviceWorker' in navigator) {
    初期化
    ============================================================ */
 window.addEventListener('DOMContentLoaded', function() {
-  /* 日付表示 */
+  /* 日付表示: XX月XX日（曜日） */
   var now = new Date();
-  var mm = now.getMonth() + 1;
-  var dd = String(now.getDate()).padStart(2, '0');
-  document.getElementById('home-date').textContent = mm + '.' + dd;
+  document.getElementById('home-date').textContent = formatDateJa(now);
 
-  /* 今日のメニュー件数 */
+  /* 今日のメニュー件数 (全食事時間帯) */
   var todayCount = MENUS.filter(function(m) { return m.is_today; }).length;
   document.getElementById('today-count').textContent = todayCount;
 
   /* 同期情報 */
-  var hh = String(now.getHours()).padStart(2, '0');
+  var hh  = String(now.getHours()).padStart(2, '0');
   var min = String(now.getMinutes()).padStart(2, '0');
   document.getElementById('home-sync-info').textContent =
     '最終同期: ' + hh + ':' + min + ' / Last sync: ' + hh + ':' + min;
@@ -440,11 +417,11 @@ window.addEventListener('DOMContentLoaded', function() {
   window.addEventListener('online',  updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
 
-  /* ローディング非表示 → ホーム表示 */
+  /* ローディング非表示 */
   setTimeout(function() {
     document.getElementById('loading').classList.add('hidden');
     showScreen('home', false);
-  }, 900);
+  }, 1000);
 });
 
 /* ============================================================
@@ -468,8 +445,8 @@ function showScreen(id, addHistory) {
   if (current) {
     current.classList.add('exit-left');
     current.classList.remove('active');
-    var el = current; /* capture */
-    setTimeout(function() { el.classList.remove('exit-left'); }, 320);
+    var el = current;
+    setTimeout(function() { el.classList.remove('exit-left'); }, 300);
   }
 
   if (addHistory && state.currentScreen && state.currentScreen !== id) {
@@ -480,8 +457,7 @@ function showScreen(id, addHistory) {
   var next = document.getElementById('screen-' + id);
   next.classList.add('active');
 
-  /* スクロール位置リセット */
-  var scrollEl = next.querySelector('.scroll-body, .step-scroll, .timer-body, .complete-body');
+  var scrollEl = next.querySelector('.scroll-body, .timer-body, .complete-body, .home-body');
   if (scrollEl) scrollEl.scrollTop = 0;
 }
 
@@ -489,9 +465,7 @@ function goBack() {
   var prev = state.screenHistory.pop();
   if (!prev) return;
   var current = document.querySelector('.screen.active');
-  if (current) {
-    current.classList.remove('active');
-  }
+  if (current) current.classList.remove('active');
   state.currentScreen = prev;
   document.getElementById('screen-' + prev).classList.add('active');
 }
@@ -505,17 +479,75 @@ function goHome() {
 }
 
 /* ============================================================
-   ホーム → 今日のメニュー
+   食事時間帯セレクター
+   ============================================================ */
+function selectMealTime(meal, btn) {
+  state.selectedMealTime = meal;
+
+  /* ボタンの active 切り替え */
+  document.querySelectorAll('.meal-time-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+
+  /* 今日のメニュー件数を食事時間帯で絞り込んで更新 */
+  var count = MENUS.filter(function(m) {
+    return m.is_today && m.meal_times && m.meal_times.indexOf(meal) !== -1;
+  }).length;
+  document.getElementById('today-count').textContent = count;
+}
+
+/* 今日のメニュー画面内で食事時間帯を切り替える */
+function filterByMealTime(meal, btn) {
+  state.selectedMealTime = meal;
+
+  document.querySelectorAll('.header-meal-tab').forEach(function(b) {
+    b.classList.toggle('active', b === btn);
+  });
+
+  var filtered = MENUS.filter(function(m) {
+    return m.is_today && m.meal_times && m.meal_times.indexOf(meal) !== -1;
+  });
+
+  renderMenuGrid(filtered, 'today-menu-grid');
+  document.getElementById('today-menu-count').textContent = filtered.length + '件';
+
+  var info = MEAL_TIME_LABELS[meal];
+  if (info) {
+    document.getElementById('today-header-title').textContent =
+      '今日の' + info.ja + ' ' + info.icon;
+    document.getElementById('today-header-sub').textContent =
+      "TODAY'S " + info.en;
+  }
+}
+
+/* ============================================================
+   今日のメニュー一覧
    ============================================================ */
 function showTodayMenu() {
-  var todayMenus = MENUS.filter(function(m) { return m.is_today; });
-  renderMenuGrid(todayMenus, 'today-menu-grid');
-  document.getElementById('today-menu-count').textContent = todayMenus.length + '件';
+  /* 選択中の食事時間帯でフィルタ、未選択なら全件 */
+  var menus;
+  if (state.selectedMealTime) {
+    menus = MENUS.filter(function(m) {
+      return m.is_today && m.meal_times && m.meal_times.indexOf(state.selectedMealTime) !== -1;
+    });
+  } else {
+    menus = MENUS.filter(function(m) { return m.is_today; });
+  }
+
+  renderMenuGrid(menus, 'today-menu-grid');
+  document.getElementById('today-menu-count').textContent = menus.length + '件';
+
+  /* ヘッダータブの active 状態を同期 */
+  document.querySelectorAll('.header-meal-tab').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.meal === state.selectedMealTime);
+  });
+
   showScreen('today');
 }
 
 /* ============================================================
-   ホーム → 検索
+   検索
    ============================================================ */
 function showSearch() {
   showScreen('search');
@@ -525,72 +557,27 @@ function showSearch() {
   }, 350);
 }
 
-/* ============================================================
-   メニューグリッド描画
-   ============================================================ */
-function renderMenuGrid(menus, gridId) {
-  var grid = document.getElementById(gridId);
-  if (!menus.length) {
-    grid.innerHTML =
-      '<div class="empty-state">' +
-        '<div class="empty-state-icon">🔍</div>' +
-        '<div class="empty-state-text">メニューが見つかりません</div>' +
-        '<div class="empty-state-sub">No menus found</div>' +
-      '</div>';
-    return;
-  }
-
-  grid.innerHTML = menus.map(function(m) {
-    /* 仕上がり写真: URLあれば<img>、なければ絵文字 */
-    var mediaHtml = m.finish_photo_url
-      ? '<img src="' + escHtml(m.finish_photo_url) + '" alt="' + escHtml(m.name) + '" loading="lazy">'
-      : escHtml(m.emoji || '🍽️');
-
-    return (
-      '<div class="menu-card" onclick="selectMenu(\'' + m.id + '\')">' +
-        '<div class="menu-card-media">' + mediaHtml + '</div>' +
-        '<div class="menu-card-body">' +
-          '<div class="menu-card-id">' + escHtml(m.id) + '</div>' +
-          '<div class="menu-card-name">' + escHtml(m.name) + '</div>' +
-          '<div class="menu-card-tags">' +
-            '<span class="tag tag-cuisine">' + escHtml(m.food_category) + '</span>' +
-            '<span class="tag tag-category">' + escHtml(m.category) + '</span>' +
-          '</div>' +
-        '</div>' +
-      '</div>'
-    );
-  }).join('');
-}
-
-/* ============================================================
-   検索
-   ============================================================ */
 function doSearch() {
   var q = document.getElementById('search-input').value.trim().toLowerCase();
-  var clearBtn = document.getElementById('search-clear-btn');
-  clearBtn.style.display = q ? 'block' : 'none';
+  document.getElementById('search-clear-btn').style.display = q ? 'block' : 'none';
 
   var results = MENUS.filter(function(m) {
-    var cuisineOk = (state.filterCuisine === 'all' || m.food_category === state.filterCuisine);
-    var categoryOk = (state.filterCategory === 'all' || m.category === state.filterCategory);
-    var textOk = !q || (
-      m.id.toLowerCase().indexOf(q) !== -1 ||
-      m.name.toLowerCase().indexOf(q) !== -1 ||
-      m.name_en.toLowerCase().indexOf(q) !== -1 ||
-      m.category.toLowerCase().indexOf(q) !== -1 ||
+    var cuisineOk  = (state.filterCuisine  === 'all' || m.food_category === state.filterCuisine);
+    var categoryOk = (state.filterCategory === 'all' || m.category     === state.filterCategory);
+    var textOk     = !q || (
+      m.id.toLowerCase().indexOf(q)          !== -1 ||
+      m.name.toLowerCase().indexOf(q)        !== -1 ||
+      m.name_en.toLowerCase().indexOf(q)     !== -1 ||
+      m.category.toLowerCase().indexOf(q)    !== -1 ||
       m.food_category.toLowerCase().indexOf(q) !== -1
     );
     return cuisineOk && categoryOk && textOk;
   });
 
   renderMenuGrid(results, 'search-menu-grid');
-
-  var info = document.getElementById('search-info');
-  if (q) {
-    info.textContent = '"' + q + '" の検索結果: ' + results.length + ' 件 / Found: ' + results.length;
-  } else {
-    info.textContent = results.length + ' 件表示中 / Showing ' + results.length + ' items';
-  }
+  document.getElementById('search-info').textContent = q
+    ? '"' + q + '" : ' + results.length + ' 件'
+    : results.length + ' 件表示中';
 }
 
 function clearSearch() {
@@ -599,14 +586,9 @@ function clearSearch() {
   doSearch();
 }
 
-/**
- * 2軸フィルター切り替え
- * type: 'cuisine' | 'category'
- */
 function setFilter(type, value, btn) {
   if (type === 'cuisine') {
     state.filterCuisine = value;
-    /* 同行のチップを切り替え */
     document.querySelectorAll('[data-filter-type="cuisine"]').forEach(function(c) {
       c.classList.toggle('active', c === btn);
     });
@@ -620,7 +602,54 @@ function setFilter(type, value, btn) {
 }
 
 /* ============================================================
-   メニュー選択 → 詳細画面
+   メニューグリッド描画
+   ============================================================ */
+function renderMenuGrid(menus, gridId) {
+  var grid = document.getElementById(gridId);
+
+  if (!menus.length) {
+    grid.innerHTML =
+      '<div class="empty-state">' +
+        '<div class="empty-state-icon">🍽️</div>' +
+        '<div class="empty-state-text">メニューが見つかりません</div>' +
+        '<div class="empty-state-sub">No menus found</div>' +
+      '</div>';
+    return;
+  }
+
+  grid.innerHTML = menus.map(function(m) {
+    /* 仕上がり写真: URLがあれば<img>、なければ絵文字 */
+    var mediaHtml = m.finish_photo_url
+      ? '<img src="' + escHtml(m.finish_photo_url) + '" alt="' + escHtml(m.name) + '" loading="lazy">'
+      : escHtml(m.emoji || '🍽️');
+
+    /* 食事時間帯タグ */
+    var mealTags = (m.meal_times || []).map(function(mt) {
+      var info = MEAL_TIME_LABELS[mt];
+      return info
+        ? '<span class="tag tag-meal-' + mt + '">' + info.icon + ' ' + info.ja + '</span>'
+        : '';
+    }).join('');
+
+    return (
+      '<div class="menu-card" onclick="selectMenu(\'' + m.id + '\')">' +
+        '<div class="menu-card-media">' + mediaHtml + '</div>' +
+        '<div class="menu-card-body">' +
+          '<div class="menu-card-id">' + escHtml(m.id) + '</div>' +
+          '<div class="menu-card-name">' + escHtml(m.name) + '</div>' +
+          '<div class="menu-card-tags">' +
+            '<span class="tag tag-cuisine">' + escHtml(m.food_category) + '</span>' +
+            '<span class="tag tag-category">' + escHtml(m.category) + '</span>' +
+            mealTags +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+}
+
+/* ============================================================
+   メニュー選択 → 詳細
    ============================================================ */
 function selectMenu(id) {
   var menu = MENUS.find(function(m) { return m.id === id; });
@@ -636,22 +665,32 @@ function selectMenu(id) {
 function renderDetailScreen() {
   var m = state.selectedMenu;
 
-  document.getElementById('detail-header-name').textContent = m.name;
-  document.getElementById('detail-id').textContent          = m.id;
-  document.getElementById('detail-name').textContent        = m.name;
-
-  /* タグ */
-  document.getElementById('detail-tags').innerHTML =
-    '<span class="tag tag-cuisine">' + escHtml(m.food_category) + '</span>' +
-    '<span class="tag tag-category">' + escHtml(m.category) + '</span>';
-
-  /* 仕上がり写真: URLあれば<img>、なければ絵文字 */
+  /* 仕上がり写真 */
   var heroMedia = document.getElementById('detail-hero-media');
   if (m.finish_photo_url) {
     heroMedia.innerHTML = '<img src="' + escHtml(m.finish_photo_url) + '" alt="' + escHtml(m.name) + '">';
   } else {
     heroMedia.textContent = m.emoji || '🍽️';
   }
+
+  /* 食事時間帯バッジ */
+  var mealBadge = document.getElementById('detail-meal-badge');
+  if (m.meal_times && m.meal_times.length) {
+    mealBadge.textContent = m.meal_times.map(function(mt) {
+      var info = MEAL_TIME_LABELS[mt];
+      return info ? info.icon + ' ' + info.ja : '';
+    }).filter(Boolean).join(' / ');
+    mealBadge.style.display = 'inline-flex';
+  } else {
+    mealBadge.style.display = 'none';
+  }
+
+  document.getElementById('detail-id').textContent   = m.id;
+  document.getElementById('detail-name').textContent = m.name;
+
+  document.getElementById('detail-tags').innerHTML =
+    '<span class="tag tag-cuisine">' + escHtml(m.food_category) + '</span>' +
+    '<span class="tag tag-category">' + escHtml(m.category) + '</span>';
 
   document.getElementById('detail-steps-count').textContent = m.steps.length;
 
@@ -676,10 +715,11 @@ function renderDetailIngredients() {
   }).join('');
 }
 
-/* 食数変更
-   【実装方針 B】: 試作として食数変更UIを残す。
-   本番では currentUser.role === 'staff' の場合この関数を無効化し、
-   changeServings() 呼び出し元ボタンを非表示にする。
+/*
+  食数変更 【実装方針 B】
+  試作として食数変更UIを残す。
+  本番: currentUser.role === 'staff' の場合は、このボタンを非表示にして
+  表示専用とする (権限制御で切り替え)。
 */
 function changeServings(delta) {
   state.currentServings = Math.max(1, state.currentServings + delta);
@@ -696,7 +736,7 @@ function startCooking() {
 }
 
 /* ============================================================
-   工程描画
+   工程描画 (1画面に収める)
    ============================================================ */
 function renderStep() {
   var m     = state.selectedMenu;
@@ -707,36 +747,33 @@ function renderStep() {
   var num   = idx + 1;
   var pct   = Math.round((num / total) * 100);
 
-  /* メニュー名 */
-  document.getElementById('step-menu-name').textContent = m.name;
-
-  /* 進捗 */
+  /* ヘッダー */
+  document.getElementById('step-menu-name').textContent   = m.name;
   document.getElementById('step-progress-fill').style.width = pct + '%';
-  document.getElementById('step-progress-text').textContent  = 'STEP ' + num + ' / ' + total;
-  document.getElementById('step-progress-pct').textContent   = pct + '%';
-  document.getElementById('step-current-num').textContent    = num;
-  document.getElementById('step-total-num').textContent      = total;
+  document.getElementById('step-progress-text').textContent = 'STEP ' + num + ' / ' + total;
+  document.getElementById('step-current-num').textContent   = num;
+  document.getElementById('step-total-num').textContent     = total;
 
-  /* 作業種別アイコン (非日本語話者向け視覚表現) */
+  /* 作業種別アイコン */
   document.getElementById('step-type-icon').textContent = getStepIcon(step);
 
-  /* 工程写真: URLあれば<img>、なければ空状態 */
-  var photoWrap = document.getElementById('step-photo-wrap');
+  /* 工程写真 */
+  var photoBox = document.getElementById('step-photo-box');
   if (step.photo) {
-    photoWrap.innerHTML = '<img src="' + escHtml(step.photo) + '" alt="Step ' + num + '">';
+    photoBox.innerHTML = '<img src="' + escHtml(step.photo) + '" alt="Step ' + num + '">';
   } else {
-    photoWrap.innerHTML =
+    photoBox.innerHTML =
       '<div class="step-photo-empty">' +
-        '<span class="step-photo-empty-icon">📷</span>' +
-        '<span class="step-photo-empty-text">工程写真なし / No Photo</span>' +
+        '<span>📷</span>' +
+        '<span class="step-photo-empty-text">No Photo</span>' +
       '</div>';
   }
 
-  /* 工程説明 */
+  /* 説明 */
   document.getElementById('step-desc-main').textContent = step.description;
   document.getElementById('step-desc-en').textContent   = step.description_en;
 
-  /* 使用材料 */
+  /* 材料 */
   var ratio      = state.currentServings / m.base_servings;
   var ingSection = document.getElementById('step-ing-section');
   if (step.ingredients && step.ingredients.length > 0) {
@@ -759,7 +796,7 @@ function renderStep() {
     ingSection.style.display = 'none';
   }
 
-  /* スチコン設定 */
+  /* スチコン */
   var scPanel = document.getElementById('step-steamcon');
   if (step.steam_con) {
     scPanel.style.display = 'block';
@@ -783,44 +820,33 @@ function renderStep() {
     hintRow.style.display = 'none';
   }
 
-  /* 完了ボタンラベル: 最終工程は「調理完了」に変更 */
-  var isLast    = idx === total - 1;
-  var btnMain   = document.getElementById('complete-btn-main');
-  var btnSub    = document.getElementById('complete-btn-sub');
-  var btnArrow  = document.getElementById('complete-btn-arrow');
-  var btn       = document.getElementById('complete-btn');
+  /* 完了ボタン: 最終工程は色と文言を変える */
+  var isLast = (idx === total - 1);
+  var btn = document.getElementById('complete-btn');
+  document.getElementById('complete-btn-main').textContent =
+    isLast ? '調理完了！' : '完了して次へ';
+  document.getElementById('complete-btn-sub').textContent =
+    isLast ? 'COOKING COMPLETE' : 'DONE -> NEXT STEP';
+  document.getElementById('complete-btn-arrow').textContent = isLast ? '✓' : '→';
 
-  if (isLast) {
-    btnMain.textContent  = '調理完了！';
-    btnSub.textContent   = 'COOKING COMPLETE';
-    btnArrow.textContent = '✓';
-    btn.classList.add('finish-state');
-  } else {
-    btnMain.textContent  = '完了して次へ';
-    btnSub.textContent   = 'DONE -> NEXT STEP';
-    btnArrow.textContent = '→';
-    btn.classList.remove('finish-state');
-  }
-
-  /* スクロール先頭 */
-  document.getElementById('step-scroll').scrollTop = 0;
+  if (isLast) { btn.classList.add('finish-state'); }
+  else        { btn.classList.remove('finish-state'); }
 }
 
 /* ============================================================
-   完了ボタン押下
+   完了ボタン
    ============================================================ */
 function completeStep() {
-  /* 完了フラッシュ */
+  /* フラッシュ */
   var overlay = document.getElementById('step-flash-overlay');
   overlay.classList.remove('flash');
-  void overlay.offsetWidth; /* reflow */
+  void overlay.offsetWidth;
   overlay.classList.add('flash');
-  setTimeout(function() { overlay.classList.remove('flash'); }, 400);
+  setTimeout(function() { overlay.classList.remove('flash'); }, 380);
 
   var step = state.selectedMenu.steps[state.currentStepIndex];
 
   if (step.timer_minutes) {
-    /* タイマーあり → タイマー画面へ */
     launchTimer(step.timer_minutes, step.description_en, state.currentStepIndex + 1);
   } else {
     advanceStep();
@@ -843,34 +869,30 @@ function launchTimer(minutes, descEn, stepNum) {
   state.timerTotal     = minutes * 60;
   state.timerRemaining = state.timerTotal;
 
-  /* リセット */
   clearTimerInterval();
   document.getElementById('alarm-overlay').classList.remove('active');
 
-  /* UI初期化 */
-  document.getElementById('timer-step-label').textContent = 'STEP ' + stepNum;
-  document.getElementById('timer-desc-text').textContent  = descEn || 'Please wait for the timer to finish.';
-  document.getElementById('timer-display').textContent    = formatTime(state.timerRemaining);
-  document.getElementById('timer-display').className      = 'timer-time';
-  document.getElementById('timer-status-text').textContent = '計測中 / RUNNING';
+  document.getElementById('timer-step-label').textContent   = 'STEP ' + stepNum;
+  document.getElementById('timer-desc-text').textContent    = descEn || 'Please wait for the timer.';
+  document.getElementById('timer-display').textContent      = formatTime(state.timerRemaining);
+  document.getElementById('timer-display').className        = 'timer-time';
+  document.getElementById('timer-status-text').textContent  = '計測中 / RUNNING';
 
   var ringFill = document.getElementById('timer-ring-fill');
   ringFill.style.strokeDashoffset = '0';
   ringFill.classList.remove('done');
 
   var nextBtn = document.getElementById('timer-next-btn');
-  nextBtn.disabled = true;
+  nextBtn.disabled  = true;
   nextBtn.className = 'timer-next-btn';
   document.getElementById('timer-next-icon').textContent = '⏳';
   document.getElementById('timer-next-text').textContent = 'タイマー計測中... / Counting...';
 
   showScreen('timer');
 
-  /* カウントダウン開始 */
   state.timerInterval = setInterval(function() {
     state.timerRemaining--;
     updateTimerDisplay();
-
     if (state.timerRemaining <= 0) {
       clearTimerInterval();
       onTimerFinished();
@@ -879,76 +901,54 @@ function launchTimer(minutes, descEn, stepNum) {
 }
 
 function updateTimerDisplay() {
-  var rem  = state.timerRemaining;
+  var rem   = state.timerRemaining;
   var total = state.timerTotal;
 
   document.getElementById('timer-display').textContent = formatTime(rem);
 
-  /* リング */
-  var pct    = rem / total;
-  var offset = RING_CIRC * (1 - pct);
+  var offset = RING_CIRC * (1 - rem / total);
   document.getElementById('timer-ring-fill').style.strokeDashoffset = offset;
 
-  /* 残り10秒: 赤・点滅 */
   var dispEl = document.getElementById('timer-display');
-  if (rem <= 10 && rem > 0) {
-    dispEl.className = 'timer-time urgent';
-  } else {
-    dispEl.className = 'timer-time';
-  }
+  if (rem <= 10 && rem > 0) { dispEl.className = 'timer-time urgent'; }
+  else if (rem > 0)          { dispEl.className = 'timer-time'; }
 }
 
 function onTimerFinished() {
-  /* 表示更新: 緑・完了状態 */
   document.getElementById('timer-display').textContent    = '00:00';
   document.getElementById('timer-display').className      = 'timer-time done';
   document.getElementById('timer-status-text').textContent = '完了！ / DONE!';
 
   var ringFill = document.getElementById('timer-ring-fill');
-  ringFill.style.strokeDashoffset = RING_CIRC + '';
+  ringFill.style.strokeDashoffset = String(RING_CIRC);
   ringFill.classList.add('done');
 
-  /* アラームオーバーレイ */
   document.getElementById('alarm-overlay').classList.add('active');
 
-  /* 次へボタンをアクティブ化 */
   var nextBtn = document.getElementById('timer-next-btn');
-  nextBtn.disabled = false;
+  nextBtn.disabled  = false;
   nextBtn.className = 'timer-next-btn ready';
   document.getElementById('timer-next-icon').textContent = '✓';
   document.getElementById('timer-next-text').textContent = '次の工程へ進む / NEXT STEP';
 
-  /* バイブレーション */
-  if (navigator.vibrate) {
-    navigator.vibrate([400, 100, 400, 100, 600]);
-  }
+  if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
 }
 
-/* タイマー完了 → 次工程へ */
 function timerComplete() {
   clearTimerInterval();
   document.getElementById('alarm-overlay').classList.remove('active');
 
-  /* タイマー画面を閉じてステップ画面に戻る */
-  var timerScreen = document.getElementById('screen-timer');
-  timerScreen.classList.remove('active');
-
+  document.getElementById('screen-timer').classList.remove('active');
   state.currentScreen = 'step';
-  var stepScreen = document.getElementById('screen-step');
-  stepScreen.classList.add('active');
+  document.getElementById('screen-step').classList.add('active');
 
-  /* 次工程へ進む */
   advanceStep();
 }
 
-/**
- * タイマー中断確認
- * 誤操作防止のため必ず確認ダイアログを表示
- */
 function tryExitTimer() {
   var ok = window.confirm(
-    'タイマーを中断しますか？\n工程のタイマーがリセットされます。\n\n' +
-    'Abort the timer?\nThe timer for this step will be reset.'
+    'タイマーを中断しますか？\nタイマーがリセットされます。\n\n' +
+    'Abort the timer?\nThe timer will be reset.'
   );
   if (ok) {
     clearTimerInterval();
@@ -958,17 +958,12 @@ function tryExitTimer() {
 }
 
 function clearTimerInterval() {
-  if (state.timerInterval) {
-    clearInterval(state.timerInterval);
-    state.timerInterval = null;
-  }
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
 }
 
 function formatTime(seconds) {
   var s = Math.max(0, seconds);
-  var m = Math.floor(s / 60);
-  var sec = s % 60;
-  return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
 
 /* ============================================================
@@ -976,8 +971,7 @@ function formatTime(seconds) {
    ============================================================ */
 function confirmExitCooking() {
   var ok = window.confirm(
-    '調理を中断しますか？\n工程の進捗はリセットされます。\n\n' +
-    'Abort cooking?\nStep progress will be reset.'
+    '調理を中断しますか？\n\nAbort cooking?'
   );
   if (ok) {
     clearTimerInterval();
@@ -990,9 +984,7 @@ function confirmExitCooking() {
    調理完了
    ============================================================ */
 function showCookingComplete() {
-  document.getElementById('complete-menu-name').textContent =
-    state.selectedMenu.name;
-
+  document.getElementById('complete-menu-name').textContent = state.selectedMenu.name;
   state.screenHistory = [];
 
   var current = document.querySelector('.screen.active');
@@ -1009,9 +1001,9 @@ function showCookingComplete() {
 function escHtml(str) {
   if (str == null) return '';
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#39;');
 }
