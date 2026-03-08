@@ -133,26 +133,53 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ============================================================
-   タイマー音（Web Audio API）
+   タイマー音（Web Audio API）― 目覚ましアラーム型・ループ継続
    ============================================================ */
+var _alarmCtx          = null;
+var _alarmLoopInterval = null;
+
 function playAlarmSound() {
+  stopAlarmSound(); /* 二重起動防止 */
   try {
-    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    /* ピピピピーン と4回鳴らす */
-    [0, 0.5, 1.0, 1.5, 2.2].forEach(function(t, i) {
-      var osc  = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = (i === 4) ? 1046 : 880; /* 最後だけ高音 */
-      gain.gain.setValueAtTime(0.6, ctx.currentTime + t);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
-      osc.start(ctx.currentTime + t);
-      osc.stop(ctx.currentTime + t + 0.45);
-    });
+    _alarmCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    /* 1回分のビープ: square波×2音 で厨房でも届く音圧 */
+    function beepOnce() {
+      if (!_alarmCtx) return;
+      var now = _alarmCtx.currentTime;
+
+      /* 低音ビープ（880Hz）*/
+      [880, 1320].forEach(function(freq, i) {
+        var osc  = _alarmCtx.createOscillator();
+        var gain = _alarmCtx.createGain();
+        osc.connect(gain);
+        gain.connect(_alarmCtx.destination);
+        osc.type = 'square';                    /* square波は倍音豊かで遠くまで通る */
+        osc.frequency.value = freq;
+        var t0 = now + i * 0.22;
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(1.0, t0 + 0.02); /* 急速立ち上がり */
+        gain.gain.setValueAtTime(1.0, t0 + 0.18);
+        gain.gain.linearRampToValueAtTime(0,   t0 + 0.22);
+        osc.start(t0);
+        osc.stop(t0 + 0.23);
+      });
+    }
+
+    beepOnce();
+    /* 800ms ごとに繰り返す → 止めるまで鳴り続ける */
+    _alarmLoopInterval = setInterval(beepOnce, 800);
+
   } catch(e) {
     console.warn('[Uni] Audio error:', e);
+  }
+}
+
+function stopAlarmSound() {
+  if (_alarmLoopInterval) { clearInterval(_alarmLoopInterval); _alarmLoopInterval = null; }
+  if (_alarmCtx) {
+    try { _alarmCtx.close(); } catch(e) {}
+    _alarmCtx = null;
   }
 }
 
@@ -317,6 +344,7 @@ function goBack() {
 
 function goHome() {
   clearTimerInterval();
+  stopAlarmSound();
   document.getElementById('alarm-overlay').classList.remove('active');
   state.screenHistory = [];
   var current = document.querySelector('.screen.active');
@@ -694,7 +722,56 @@ function renderStep() {
   document.getElementById('complete-btn-arrow').textContent = isLast ? '✓'               : '→';
   if (isLast) btn.classList.add('finish-state');
   else        btn.classList.remove('finish-state');
+
+  /* 以降の工程プレビュー */
+  renderUpcomingSteps(steps, idx);
 }
+
+/* 以降の工程をコンパクト表示 */
+function renderUpcomingSteps(steps, currentIdx) {
+  var container = document.getElementById('upcoming-steps-section');
+  if (!container) return;
+
+  var remaining = steps.slice(currentIdx + 1); /* 次の工程以降 */
+  if (!remaining.length) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+
+  /* 最大5工程まで表示（それ以上は「...他N工程」） */
+  var SHOW_MAX = 5;
+  var shown    = remaining.slice(0, SHOW_MAX);
+  var extra    = remaining.length - shown.length;
+
+  document.getElementById('upcoming-steps-list').innerHTML =
+    shown.map(function(step, i) {
+      /* 距離が遠いほど薄くなる (opacity: 0.85 → 0.55) */
+      var opacity = Math.max(0.45, 0.88 - i * 0.10).toFixed(2);
+      var scale   = Math.max(0.88, 1.0  - i * 0.025).toFixed(3);
+      var icon    = getStepIcon(step);
+      var timerBadge = step.timer_minutes
+        ? '<span class="upcoming-tag">⏱️ ' + step.timer_minutes + '分</span>'
+        : '';
+      var scBadge = step.steam_con
+        ? '<span class="upcoming-tag">🌡️ ' + (step.steam_con.temperature || '') + '℃</span>'
+        : '';
+      return (
+        '<div class="upcoming-step-item" style="opacity:' + opacity + ';transform:scale(' + scale + ');">' +
+          '<div class="upcoming-step-num">STEP ' + step.step_number + '</div>' +
+          '<div class="upcoming-step-icon">' + icon + '</div>' +
+          '<div class="upcoming-step-body">' +
+            '<div class="upcoming-step-desc">' + escHtml(step.description) + '</div>' +
+            (timerBadge || scBadge
+              ? '<div class="upcoming-step-tags">' + timerBadge + scBadge + '</div>'
+              : '') +
+          '</div>' +
+        '</div>'
+      );
+    }).join('') +
+    (extra > 0
+      ? '<div class="upcoming-step-more">… 他 ' + extra + ' 工程</div>'
+      : '');
 
 /* ============================================================
    完了ボタン
@@ -796,6 +873,7 @@ function onTimerFinished() {
 
 function timerComplete() {
   clearTimerInterval();
+  stopAlarmSound();
   document.getElementById('alarm-overlay').classList.remove('active');
   document.getElementById('screen-timer').classList.remove('active');
   state.currentScreen = 'step';
@@ -810,6 +888,7 @@ function tryExitTimer() {
   );
   if (ok) {
     clearTimerInterval();
+    stopAlarmSound();
     document.getElementById('alarm-overlay').classList.remove('active');
     goBack();
   }
