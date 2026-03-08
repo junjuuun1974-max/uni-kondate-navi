@@ -768,8 +768,10 @@ function renderStep() {
 
   var photoBox = document.getElementById('step-photo-box');
   if (step.photo) {
-    photoBox.innerHTML = '<img src="' + escHtml(step.photo) + '" alt="Step ' + num + '">';
+    photoBox.style.cssText = 'background:#000; display:flex; align-items:center; justify-content:center; max-height:280px; overflow:hidden;';
+    photoBox.innerHTML = '<img src="' + escHtml(step.photo) + '" alt="Step ' + num + '" style="width:100%;max-height:280px;object-fit:contain;display:block;">';
   } else {
+    photoBox.style.cssText = '';
     photoBox.innerHTML =
       '<div class="step-photo-empty">' +
         '<span>📷</span>' +
