@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uni献立ナビ 管理画面</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary:#2D6A4F;--primary2:#40916C;--primary3:#52B788;--primary-light:#D8EDD4;
+  --accent:#C8762A;--accent-light:#FDF0E0;--bg:#F4F8F2;--bg2:#EBF3E7;
+  --card:#FFFFFF;--card2:#F0F5EE;--card3:#E4EEE0;
+  --border:rgba(45,106,79,0.12);--border2:rgba(45,106,79,0.22);
+  --text:#1A2E23;--text2:#374A3C;--muted:#6E8C75;--muted2:#9BB5A0;
+  --danger:#C0392B;--danger-light:#FDECEA;--warning:#C8762A;
+  --morning:#F59B42;--lunch:#4A9E6B;--dinner:#5B6FA8;--snack:#C4698A;
+  --radius:14px;--radius-sm:9px;
+  --shadow:0 2px 12px rgba(45,106,79,0.10);--shadow-lg:0 6px 32px rgba(45,106,79,0.14);
+  --font:'Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;
+  --font-serif:'Noto Serif JP','Hiragino Mincho ProN',serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ============ ログイン画面 ============ */
+#login-screen {
+  position:fixed; inset:0; z-index:9999;
+  background:linear-gradient(135deg,#1B4332 0%,#2D6A4F 60%,#40916C 100%);
+  display:flex; align-items:center; justify-content:center;
+}
+.login-box {
+  background:#fff; border-radius:20px; padding:40px 36px;
+  width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,0.25);
+  text-align:center;
+}
+.login-logo { font-size:36px; margin-bottom:8px; }
+.login-title {
+  font-family:var(--font-serif); font-size:20px; font-weight:700;
+  color:#1A2E23; margin-bottom:4px;
+}
+.login-sub { font-size:11px; color:#6E8C75; letter-spacing:2px; margin-bottom:28px; }
+.login-label {
+  font-size:11px; font-weight:800; color:#6E8C75;
+  text-align:left; display:block; margin-bottom:6px; letter-spacing:0.08em;
+}
+.login-input {
+  width:100%; padding:14px 16px; border:2px solid #D8EDD4;
+  border-radius:12px; font-size:16px; outline:none;
+  transition:border-color 0.2s; margin-bottom:16px;
+}
+.login-input:focus { border-color:#2D6A4F; }
+.login-btn {
+  width:100%; padding:16px; background:#2D6A4F; color:#fff;
+  border:none; border-radius:12px; font-size:15px; font-weight:800;
+  cursor:pointer; transition:background 0.15s; margin-bottom:10px;
+}
+.login-btn:hover { background:#40916C; }
+.login-error {
+  color:#C0392B; font-size:12px; font-weight:700;
+  min-height:18px; margin-top:4px;
+}
+
+button{font-family:var(--font);cursor:pointer;border:none;-webkit-appearance:none;}
+input,select,textarea{font-family:var(--font);}
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh;}
+.sidebar{background:linear-gradient(180deg,var(--primary) 0%,#1B4332 100%);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,0.10);}
+.sidebar-logo-name{font-family:var(--font-serif);font-size:18px;font-weight:700;color:#FFF;margin-top:6px;letter-spacing:1px;}
+.sidebar-logo-sub{font-size:9px;color:rgba(255,255,255,0.45);letter-spacing:2px;margin-top:2px;}
+.sidebar-badge{display:inline-block;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);font-size:9px;padding:2px 7px;border-radius:100px;margin-top:6px;}
+.sidebar-nav{padding:16px 12px;flex:1;overflow-y:auto;}
+.sidebar-section-label{font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.35);text-transform:uppercase;padding:10px 8px 6px;font-weight:700;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:var(--radius-sm);color:rgba(255,255,255,0.65);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;}
+.nav-item:hover{background:rgba(255,255,255,0.10);color:#FFF;}
+.nav-item.active{background:rgba(255,255,255,0.18);color:#FFF;}
+.nav-item-icon{font-size:16px;flex-shrink:0;width:20px;text-align:center;}
+.nav-item-count{margin-left:auto;background:rgba(255,255,255,0.18);color:rgba(255,255,255,0.8);font-size:10px;padding:2px 7px;border-radius:100px;font-weight:700;}
+.sidebar-footer{padding:14px 12px;border-top:1px solid rgba(255,255,255,0.10);}
+.config-status{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.5);}
+.config-dot{width:7px;height:7px;border-radius:50%;background:#52B788;flex-shrink:0;}
+.config-dot.error{background:#E74C3C;}
+.main{padding:28px 32px;overflow-y:auto;}
+.page{display:none;}
+.page.active{display:block;}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.page-title{font-family:var(--font-serif);font-size:26px;font-weight:700;}
+.page-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:18px 20px;box-shadow:var(--shadow);}
+.stat-icon{font-size:26px;margin-bottom:8px;}
+.stat-val{font-size:36px;font-weight:900;color:var(--primary);line-height:1;}
+.stat-label{font-size:11px;color:var(--muted);margin-top:5px;font-weight:700;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;border:none;white-space:nowrap;}
+.btn:active{transform:scale(0.97);}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#FFF;box-shadow:0 3px 12px rgba(45,106,79,0.30);}
+.btn-secondary{background:var(--card2);color:var(--text);border:1.5px solid var(--border2);}
+.btn-secondary:hover{background:var(--primary-light);}
+.btn-danger{background:var(--danger-light);color:var(--danger);border:1.5px solid rgba(192,57,43,0.22);}
+.btn-sm{padding:7px 12px;font-size:12px;}
+.btn-lg{padding:14px 26px;font-size:15px;}
+.btn-icon-only{width:36px;height:36px;padding:0;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;transition:all 0.15s;}
+.btn-icon-only:hover{background:var(--primary-light);}
+.table-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:hidden;}
+.table-toolbar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);background:var(--card2);}
+.table-search{flex:1;display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border2);border-radius:var(--radius-sm);padding:0 12px;height:38px;}
+.table-search:focus-within{border-color:var(--primary2);}
+.table-search input{flex:1;border:none;outline:none;font-size:13px;color:var(--text);background:none;}
+.filter-chip{padding:5px 11px;border-radius:100px;border:1.5px solid var(--border2);background:var(--card);font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;transition:all 0.15s;}
+.filter-chip.active{background:var(--primary);border-color:var(--primary);color:#FFF;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--card2);}
+th{padding:11px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--bg);}
+.td-id{font-size:11px;color:var(--primary2);font-weight:700;letter-spacing:1px;}
+.td-name{font-weight:700;}
+.td-name-en{font-size:11px;color:var(--muted);margin-top:2px;}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:10px;font-weight:700;white-space:nowrap;}
+.badge-cuisine{background:var(--primary-light);color:var(--primary);}
+.badge-category{background:var(--accent-light);color:var(--accent);}
+.badge-morning{background:rgba(245,155,66,0.15);color:var(--morning);}
+.badge-lunch{background:rgba(74,158,107,0.15);color:var(--lunch);}
+.badge-dinner{background:rgba(91,111,168,0.15);color:var(--dinner);}
+.badge-snack{background:rgba(196,105,138,0.15);color:var(--snack);}
+.td-actions{display:flex;gap:6px;justify-content:flex-end;}
+.empty-row td{text-align:center;padding:60px;}
+.empty-icon{font-size:40px;opacity:0.3;margin-bottom:10px;}
+.empty-text{font-size:14px;font-weight:700;color:var(--muted);}
+.empty-sub{font-size:12px;color:var(--muted2);margin-top:4px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,46,35,0.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.2s;backdrop-filter:blur(4px);}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--card);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:720px;max-height:90vh;display:flex;flex-direction:column;transform:translateY(16px) scale(0.98);transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1);}
+.modal-overlay.open .modal{transform:translateY(0) scale(1);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.modal-title{font-family:var(--font-serif);font-size:20px;font-weight:700;}
+.modal-close{width:36px;height:36px;border-radius:9px;background:var(--card2);border:1px solid var(--border);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all 0.15s;}
+.modal-close:hover{background:var(--danger-light);color:var(--danger);}
+.modal-body{padding:22px 24px;overflow-y:auto;flex:1;}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-full{grid-column:1/-1;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.form-label .required{color:var(--danger);margin-left:3px;}
+.form-input,.form-select,.form-textarea{padding:10px 13px;border-radius:var(--radius-sm);border:1.5px solid var(--border2);background:var(--bg);color:var(--text);font-size:14px;transition:border-color 0.15s;width:100%;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--primary2);background:var(--card);}
+.form-textarea{resize:vertical;min-height:80px;line-height:1.6;}
+.meal-checks{display:flex;gap:8px;flex-wrap:wrap;}
+.meal-check-label{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--border2);background:var(--card);cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);transition:all 0.15s;user-select:none;}
+.meal-check-label input{display:none;}
+.meal-check-label.checked[data-meal="morning"]{background:rgba(245,155,66,0.12);border-color:var(--morning);color:var(--morning);}
+.meal-check-label.checked[data-meal="lunch"]{background:rgba(74,158,107,0.12);border-color:var(--lunch);color:var(--lunch);}
+.meal-check-label.checked[data-meal="dinner"]{background:rgba(91,111,168,0.12);border-color:var(--dinner);color:var(--dinner);}
+.meal-check-label.checked[data-meal="snack"]{background:rgba(196,105,138,0.12);border-color:var(--snack);color:var(--snack);}
+.photo-upload-area{border:2px dashed var(--border2);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--bg);}
+.photo-upload-area:hover{border-color:var(--primary2);background:var(--primary-light);}
+.photo-upload-area.has-photo{border-style:solid;border-color:var(--primary2);padding:8px;background:var(--bg2);}
+.photo-upload-area img{width:100%;max-height:220px;object-fit:contain;display:block;border-radius:8px;}
+.photo-upload-icon{font-size:30px;margin-bottom:8px;opacity:0.5;}
+.photo-upload-text{font-size:13px;color:var(--muted);font-weight:700;}
+.photo-upload-sub{font-size:11px;color:var(--muted2);margin-top:3px;}
+.photo-upload-input{display:none;}
+.date-picker-wrap{border:1.5px solid var(--border2);border-radius:var(--radius);overflow:hidden;background:var(--card);}
+.date-picker-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--primary);color:#fff;}
+.date-picker-header button{background:rgba(255,255,255,0.2);border:none;color:#fff;width:28px;height:28px;border-radius:7px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.date-picker-month{font-weight:700;font-size:14px;}
+.date-picker-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.date-picker-dow{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:7px 0;background:var(--bg2);}
+.date-picker-cell{text-align:center;padding:7px 4px;font-size:12px;cursor:pointer;border-radius:6px;margin:2px;transition:all 0.1s;color:var(--text);user-select:none;}
+.date-picker-cell:hover{background:var(--primary-light);color:var(--primary);}
+.date-picker-cell.selected{background:var(--primary);color:#fff;font-weight:700;}
+.date-picker-cell.today-mark{font-weight:700;color:var(--accent);}
+.date-picker-cell.today-mark.selected{background:var(--primary);color:#fff;}
+.date-picker-cell.empty{cursor:default;}
+.selected-dates-wrap{padding:10px 14px;border-top:1px solid var(--border);min-height:44px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.selected-date-badge{display:inline-flex;align-items:center;gap:5px;background:var(--primary-light);color:var(--primary);border:1px solid rgba(45,106,79,0.2);padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;}
+.selected-date-badge button{background:none;border:none;color:var(--primary);cursor:pointer;font-size:13px;line-height:1;padding:0;}
+.no-dates-label{font-size:12px;color:var(--muted2);}
+.steps-section{margin-top:20px;}
+.steps-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.steps-section-title{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.step-card{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--radius);margin-bottom:10px;overflow:hidden;}
+.step-card-header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card2);border-bottom:1px solid var(--border);cursor:pointer;}
+.step-num-badge{width:28px;height:28px;border-radius:8px;background:var(--primary);color:#FFF;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-card-title{flex:1;font-size:13px;font-weight:700;color:var(--text);}
+.step-card-body{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.step-full{grid-column:1/-1;}
+.steamcon-toggle{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.toggle-switch{width:44px;height:24px;border-radius:12px;background:var(--border2);border:none;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;}
+.toggle-switch.on{background:#3B82F6;}
+.toggle-switch::after{content:'';position:absolute;top:4px;left:4px;width:16px;height:16px;border-radius:50%;background:#FFF;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+.toggle-switch.on::after{transform:translateX(20px);}
+.toggle-label{font-size:12px;font-weight:700;color:var(--muted);}
+.steamcon-fields{background:rgba(59,130,246,0.06);border:1.5px solid rgba(59,130,246,0.18);border-radius:var(--radius-sm);padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.ing-editor{display:flex;flex-direction:column;gap:7px;}
+.ing-row-edit{display:grid;grid-template-columns:1fr 80px 60px 32px;gap:6px;align-items:center;}
+.ing-row-edit input{padding:8px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border2);background:var(--bg);font-size:12px;color:var(--text);width:100%;}
+.ing-row-edit input:focus{outline:none;border-color:var(--primary2);}
+.ing-remove-btn{width:32px;height:32px;border-radius:7px;background:var(--danger-light);border:none;cursor:pointer;color:var(--danger);font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.toast-container{position:fixed;top:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;}
+.toast{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:var(--radius);padding:13px 18px;box-shadow:var(--shadow-lg);border-left:4px solid var(--primary);font-size:13px;font-weight:700;color:var(--text);animation:slide-in 0.3s ease;min-width:240px;}
+.toast.error{border-left-color:var(--danger);}
+.toast.warning{border-left-color:var(--warning);}
+@keyframes slide-in{from{opacity:0;transform:translateX(24px);}to{opacity:1;transform:translateX(0);}}
+.loading-bar{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--primary3));z-index:200;transform:scaleX(0);transform-origin:left;transition:transform 0.4s;border-radius:0 2px 2px 0;}
+.loading-bar.active{transform:scaleX(0.7);}
+.loading-bar.done{transform:scaleX(1);opacity:0;transition:transform 0.2s,opacity 0.3s 0.2s;}
+.spinner-inline{width:16px;height:16px;border:2px solid rgba(255,255,255,0.4);border-top-color:#FFF;border-radius:50%;animation:spin 0.6s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.config-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:26px;box-shadow:var(--shadow);max-width:560px;}
+.config-card h3{font-size:16px;font-weight:700;margin-bottom:16px;}
+.config-info{background:var(--primary-light);border-radius:var(--radius-sm);padding:12px 14px;margin-top:16px;font-size:12px;color:var(--primary);line-height:1.7;}
+</style>
+</head>
+<body>
+
+<!-- ログイン画面 -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">🌿</div>
+    <div class="login-title">Uni献立ナビ</div>
+    <div class="login-sub">ADMIN MANAGEMENT</div>
+    <label class="login-label">パスワード / PASSWORD</label>
+    <input id="login-pw" class="login-input" type="password"
+      placeholder="パスワードを入力"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">🔓 ログイン</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- 管理画面本体（ログイン後に表示） -->
+<div id="admin-body" style="display:none">
+<div class="loading-bar" id="loading-bar"></div>
+<div class="toast-container" id="toast-container"></div>
+
+<!-- 接続設定モーダル -->
+<div class="modal-overlay" id="config-modal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header"><div class="modal-title">🔧 Supabase 接続設定</div></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">メモしたSupabaseの情報を入力してください。<br>この情報はブラウザに保存されます。</p>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Project URL <span class="required">*</span></label>
+        <input class="form-input" id="cfg-url" placeholder="https://xxxxxx.supabase.co">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Publishable Key <span class="required">*</span></label>
+        <input class="form-input" id="cfg-key" placeholder="sb_publishable_...">
+      </div>
+      <div class="config-info">💡 Settings → API Keys → Publishable key のコピーアイコンでコピーできます。</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-lg" onclick="saveConfig()">💾 保存して接続</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- サイドバー -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div style="font-size:22px">🌿</div>
+      <div class="sidebar-logo-name">Uni献立ナビ</div>
+      <div class="sidebar-logo-sub">ADMIN CONSOLE</div>
+      <div class="sidebar-badge">管理画面</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-label">メイン</div>
+      <button class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-item-icon">📊</span> ダッシュボード</button>
+      <button class="nav-item" onclick="showPage('menus',this)"><span class="nav-item-icon">🍽️</span> メニュー管理<span class="nav-item-count" id="nav-count">—</span></button>
+      <div class="sidebar-section-label" style="margin-top:12px">設定</div>
+      <button class="nav-item" onclick="showPage('settings',this)"><span class="nav-item-icon">⚙️</span> 接続設定</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="config-status"><div class="config-dot" id="conn-dot"></div><span id="conn-label">未接続</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ダッシュボード -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div><div class="page-title">ダッシュボード</div><div class="page-sub">メニューデータの概要</div></div>
+        <button class="btn btn-primary" onclick="showPage('menus',document.querySelectorAll('.nav-item')[1]);openMenuModal(null)">＋ 新規メニュー登録</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">🍽️</div><div class="stat-val" id="stat-total">—</div><div class="stat-label">総メニュー数</div></div>
+        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-val" id="stat-today">—</div><div class="stat-label">今日のメニュー</div></div>
+        <div class="stat-card"><div class="stat-icon">📷</div><div class="stat-val" id="stat-photo">—</div><div class="stat-label">写真登録済み</div></div>
+        <div class="stat-card"><div class="stat-icon">🌿</div><div class="stat-val">無料</div><div class="stat-label">現在のプラン</div></div>
+      </div>
+      <div class="table-card">
+        <div class="table-toolbar"><div style="font-size:14px;font-weight:700">📅 今日のメニュー</div></div>
+        <table>
+          <thead><tr><th>ID</th><th>メニュー名</th><th>系統</th><th>分類</th><th>食事区分</th><th>提供日</th></tr></thead>
+          <tbody id="today-tbody"><tr class="empty-row"><td colspan="6"><div class="empty-icon">📭</div><div class="empty-text">読み込み中...</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- メニュー管理 -->
+    <div class="page" id="page-menus">
+      <div class="page-header">
+        <div><div class="page-title">メニュー管理</div><div class="page-sub">登録済みメニューの一覧・編集</div></div>
+        <button class="btn btn-primary" onclick="openMenuModal(null)">＋ 新規登録</button>
+      </div>
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="table-search"><span>🔍</span><input id="menu-search" placeholder="ID・メニュー名で検索..." oninput="filterMenus()"></div>
+          <div style="display:flex;gap:6px">
+            <button class="filter-chip active" data-cuisine="all" onclick="setCuisineFilter('all',this)">ALL</button>
+            <button class="filter-chip" data-cuisine="和食" onclick="setCuisineFilter('和食',this)">🍱 和食</button>
+            <button class="filter-chip" data-cuisine="洋食" onclick="setCuisineFilter('洋食',this)">🍝 洋食</button>
+            <button class="filter-chip" data-cuisine="中華" onclick="setCuisineFilter('中華',this)">🥢 中華</button>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadMenus()">🔄</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>メニュー名</th><th>系統</th><th>分類</th><th>食事区分</th><th>食数</th><th>提供日</th><th style="text-align:right">操作</th></tr></thead>
+          <tbody id="menu-tbody"><tr class="empty-row"><td colspan="8"><div class="empty-icon">🔌</div><div class="empty-text">接続設定を完了してください</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 接続設定 -->
+    <div class="page" id="page-settings">
+      <div class="page-header"><div><div class="page-title">接続設定</div><div class="page-sub">SupabaseのAPIキーを設定する</div></div></div>
+      <div class="config-card">
+        <h3>🔧 Supabase 接続情報</h3>
+        <div class="form-group" style="margin-bottom:14px">
+          <label class="form-label">Project URL</label>
+          <input class="form-input" id="settings-url" placeholder="https://xxxxxx.supabase.co">
+        </div>
+        <div class="form-group" style="margin-bottom:18px">
+          <label class="form-label">Publishable Key</label>
+          <input class="form-input" id="settings-key" placeholder="sb_publishable_...">
+        </div>
+        <button class="btn btn-primary" onclick="saveConfigFromSettings()">💾 保存して接続テスト</button>
+        <div class="config-info">💡 Supabase → Settings → API Keys → Publishable key をコピーしてください。</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- メニュー登録・編集モーダル -->
+<div class="modal-overlay" id="menu-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div><div class="modal-title" id="modal-title-text">メニュー登録</div><div style="font-size:11px;color:var(--muted);margin-top:2px">基本情報・材料・工程を入力してください</div></div>
+      <button class="modal-close" onclick="closeMenuModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">基本情報</div>
+      <div class="form-grid" style="margin-bottom:18px">
+        <div class="form-group">
+          <label class="form-label">メニューID <span class="required">*</span></label>
+          <input class="form-input" id="f-id" placeholder="例：M-00001">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">00001 と入力すると M-00001 として保存されます</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">基本食数</label>
+          <input class="form-input" id="f-servings" type="number" min="1" value="10">
+        </div>
+        <div class="form-group">
+          <label class="form-label">メニュー名（日本語）<span class="required">*</span></label>
+          <input class="form-input" id="f-name" placeholder="例：肉じゃが">
+        </div>
+        <div class="form-group">
+          <label class="form-label">メニュー名（英語）</label>
+          <input class="form-input" id="f-name-en" placeholder="Nikujaga">
+        </div>
+        <div class="form-group">
+          <label class="form-label">料理系統</label>
+          <select class="form-select" id="f-cuisine">
+            <option value="和食">🍱 和食</option><option value="洋食">🍝 洋食</option>
+            <option value="中華">🥢 中華</option><option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">調理分類</label>
+          <select class="form-select" id="f-category">
+            <option value="煮物">🫕 煮物</option><option value="焼き物">🔥 焼き物</option>
+            <option value="汁物">🍜 汁物</option><option value="炒め物">🍳 炒め物</option>
+            <option value="副菜">🥗 副菜</option><option value="デザート">🍮 デザート</option><option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">食事区分（複数選択可）</label>
+          <div class="meal-checks">
+            <label class="meal-check-label" data-meal="morning" onclick="toggleMealCheck(this,event)"><input type="checkbox" value="morning"> 🌅 朝食</label>
+            <label class="meal-check-label" data-meal="lunch"   onclick="toggleMealCheck(this,event)"><input type="checkbox" value="lunch">   ☀️ 昼食</label>
+            <label class="meal-check-label" data-meal="dinner"  onclick="toggleMealCheck(this,event)"><input type="checkbox" value="dinner">  🌙 夕食</label>
+            <label class="meal-check-label" data-meal="snack"   onclick="toggleMealCheck(this,event)"><input type="checkbox" value="snack">   🍵 おやつ</label>
+          </div>
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">仕上がり写真</label>
+          <div class="photo-upload-area" id="photo-upload-area" onclick="document.getElementById('photo-file').click()">
+            <div class="photo-upload-icon">📷</div>
+            <div class="photo-upload-text">クリックして写真をアップロード</div>
+            <div class="photo-upload-sub">JPG・PNG・WebP（推奨サイズ: 800×600px）</div>
+          </div>
+          <input type="file" id="photo-file" class="photo-upload-input" accept="image/*" onchange="handlePhotoSelect(this)">
+          <input class="form-input" id="f-photo-url" placeholder="または写真のURLを直接入力" style="margin-top:8px" oninput="previewPhotoUrl(this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">絵文字（写真なし時）</label>
+          <input class="form-input" id="f-emoji" placeholder="🍽️" maxlength="4">
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label">📅 提供日（カレンダーで複数選択）</label>
+          <div class="date-picker-wrap">
+            <div class="date-picker-header">
+              <button onclick="calPrev()">‹</button>
+              <div class="date-picker-month" id="cal-month-label"></div>
+              <button onclick="calNext()">›</button>
+            </div>
+            <div class="date-picker-grid">
+              <div class="date-picker-dow">日</div><div class="date-picker-dow">月</div><div class="date-picker-dow">火</div>
+              <div class="date-picker-dow">水</div><div class="date-picker-dow">木</div><div class="date-picker-dow">金</div><div class="date-picker-dow">土</div>
+            </div>
+            <div class="date-picker-grid" id="cal-grid"></div>
+            <div class="selected-dates-wrap" id="selected-dates-wrap"><span class="no-dates-label">日付を選択してください</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🥦 材料リスト</div>
+      <div class="ing-editor" id="ing-editor"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addIngredient()" style="margin-top:8px">＋ 材料を追加</button>
+
+      <div class="steps-section">
+        <div class="steps-section-header"><div class="steps-section-title">📋 調理工程</div></div>
+        <div id="steps-editor"></div>
+        <button class="btn btn-secondary btn-sm" onclick="addStep()" style="margin-top:10px;width:100%;justify-content:center">＋ 工程を追加</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeMenuModal()">キャンセル</button>
+      <button class="btn btn-primary btn-lg" id="save-btn" onclick="saveMenu()">💾 保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><div class="modal-title">🗑️ メニューを削除</div><button class="modal-close" onclick="closeDeleteModal()">✕</button></div>
+    <div class="modal-body"><p style="font-size:14px;line-height:1.7"><strong id="delete-menu-name"></strong> を削除します。この操作は元に戻せません。</p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /admin-body -->
+
+<script>
+var SUPABASE_URL='', SUPABASE_KEY='';
+var allMenus=[], filteredMenus=[], cuisineFilter='all';
+var editingMenuId=null, deleteTargetId=null, pendingPhotoFile=null;
+var ingList=[], stepList=[], selectedDates=[];
+var calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
+
+/* 設定 */
+function loadConfig(){
+  SUPABASE_URL=localStorage.getItem('sb_url')||'';
+  SUPABASE_KEY=localStorage.getItem('sb_key')||'';
+  if(SUPABASE_URL) document.getElementById('cfg-url').value=SUPABASE_URL;
+  if(SUPABASE_KEY) document.getElementById('cfg-key').value=SUPABASE_KEY;
+  document.getElementById('settings-url').value=SUPABASE_URL;
+  document.getElementById('settings-key').value=SUPABASE_KEY;
+  updateConnStatus();
+  if(!SUPABASE_URL||!SUPABASE_KEY){ document.getElementById('config-modal').classList.add('open'); }
+  else{ loadDashboard(); }
+}
+function saveConfig(){
+  var url=document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
+  var key=document.getElementById('cfg-key').value.trim();
+  if(!url||!key){toast('URLとキーを入力してください','error');return;}
+  SUPABASE_URL=url; SUPABASE_KEY=key;
+  localStorage.setItem('sb_url',url); localStorage.setItem('sb_key',key);
+  document.getElementById('config-modal').classList.remove('open');
+  updateConnStatus(); loadDashboard(); toast('接続設定を保存しました ✅');
+}
+function saveConfigFromSettings(){
+  var url=document.getElementById('settings-url').value.trim().replace(/\/$/,'');
+  var key=document.getElementById('settings-key').value.trim();
+  if(!url||!key){toast('URLとキーを入力してください','error');return;}
+  SUPABASE_URL=url; SUPABASE_KEY=key;
+  localStorage.setItem('sb_url',url); localStorage.setItem('sb_key',key);
+  document.getElementById('cfg-url').value=url; document.getElementById('cfg-key').value=key;
+  updateConnStatus(); loadDashboard(); toast('保存して接続しました ✅');
+}
+function updateConnStatus(){
+  var d=document.getElementById('conn-dot'), l=document.getElementById('conn-label');
+  if(SUPABASE_URL&&SUPABASE_KEY){d.className='config-dot';l.textContent='接続済み';}
+  else{d.className='config-dot error';l.textContent='未接続';}
+}
+
+/* Supabase API */
+async function sbGet(t,p){
+  var r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?'+(p||'select=*&order=id'),{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
+  if(!r.ok)throw new Error(await r.text()); return r.json();
+}
+async function sbInsert(t,d){
+  var r=await fetch(SUPABASE_URL+'/rest/v1/'+t,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(d)});
+  if(!r.ok)throw new Error(await r.text());
+}
+async function sbUpdate(t,id,d){
+  var r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(d)});
+  if(!r.ok)throw new Error(await r.text());
+}
+async function sbDelete(t,id){
+  var r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
+  if(!r.ok)throw new Error(await r.text());
+}
+async function sbDeleteWhere(t,col,val){
+  var r=await fetch(SUPABASE_URL+'/rest/v1/'+t+'?'+col+'=eq.'+encodeURIComponent(val),{method:'DELETE',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
+  if(!r.ok)throw new Error(await r.text());
+}
+async function uploadPhoto(file){
+  var ext=file.name.split('.').pop().toLowerCase()||'jpg';
+  var name='menu_'+Date.now()+'.'+ext;
+  var r=await fetch(SUPABASE_URL+'/storage/v1/object/menu-photos/'+name,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':file.type,'x-upsert':'true'},body:file});
+  if(!r.ok){var e=await r.text();throw new Error('写真アップロード失敗: '+e);}
+  return SUPABASE_URL+'/storage/v1/object/public/menu-photos/'+name;
+}
+
+/* ダッシュボード */
+async function loadDashboard(){
+  if(!SUPABASE_URL)return;
+  setLoading(true);
+  try{
+    allMenus=(await sbGet('menus'))||[];
+    filteredMenus=allMenus.slice();
+    var ts=getTodayStr();
+    document.getElementById('stat-total').textContent=allMenus.length;
+    document.getElementById('stat-today').textContent=allMenus.filter(function(m){return m.serve_dates&&m.serve_dates.indexOf(ts)!==-1;}).length;
+    document.getElementById('stat-photo').textContent=allMenus.filter(function(m){return m.finish_photo_url;}).length;
+    document.getElementById('nav-count').textContent=allMenus.length;
+    renderTodayTable(); renderMenuTable();
+  }catch(e){toast('データ読み込み失敗: '+e.message,'error');}
+  setLoading(false);
+}
+async function loadMenus(){await loadDashboard();}
+
+function renderTodayTable(){
+  var ts=getTodayStr();
+  var today=allMenus.filter(function(m){return m.serve_dates&&m.serve_dates.indexOf(ts)!==-1;});
+  var tb=document.getElementById('today-tbody');
+  if(!today.length){tb.innerHTML='<tr class="empty-row"><td colspan="6"><div class="empty-icon">📭</div><div class="empty-text">今日のメニューなし</div></td></tr>';return;}
+  tb.innerHTML=today.map(function(m){return menuRow(m,true);}).join('');
+}
+function renderMenuTable(){
+  var q=(document.getElementById('menu-search').value||'').toLowerCase();
+  filteredMenus=allMenus.filter(function(m){
+    return (cuisineFilter==='all'||m.food_category===cuisineFilter)&&
+           (!q||(m.id||'').toLowerCase().indexOf(q)!==-1||(m.name||'').toLowerCase().indexOf(q)!==-1);
+  });
+  var tb=document.getElementById('menu-tbody');
+  if(!filteredMenus.length){tb.innerHTML='<tr class="empty-row"><td colspan="8"><div class="empty-icon">🔍</div><div class="empty-text">該当メニューなし</div></td></tr>';return;}
+  tb.innerHTML=filteredMenus.map(function(m){return menuRow(m,false);}).join('');
+}
+function menuRow(m,compact){
+  var meals=(m.meal_times||[]).map(function(mt){
+    var ic={morning:'🌅',lunch:'☀️',dinner:'🌙',snack:'🍵'},nm={morning:'朝',lunch:'昼',dinner:'夕',snack:'おやつ'};
+    return '<span class="badge badge-'+mt+'">'+(ic[mt]||'')+' '+(nm[mt]||mt)+'</span>';
+  }).join(' ');
+  var dc=renderDatesCell(m.serve_dates);
+  var act=compact?'':'<td class="td-actions"><button class="btn-icon-only" onclick="openMenuModal(\''+esc(m.id)+'\')">✏️</button><button class="btn-icon-only" onclick="openDeleteModal(\''+esc(m.id)+'\',\''+esc(m.name)+'\')">🗑️</button></td>';
+  return '<tr><td class="td-id">'+escHtml(m.id||'')+'</td><td><div class="td-name">'+escHtml(m.name||'')+'</div><div class="td-name-en">'+escHtml(m.name_en||'')+'</div></td><td><span class="badge badge-cuisine">'+escHtml(m.food_category||'')+'</span></td><td><span class="badge badge-category">'+escHtml(m.category||'')+'</span></td><td>'+meals+'</td>'+(compact?'':'<td style="text-align:center;font-weight:700">'+escHtml(String(m.base_servings||10))+'</td>')+'<td style="text-align:center;font-size:11px">'+dc+'</td>'+act+'</tr>';
+}
+function filterMenus(){renderMenuTable();}
+function setCuisineFilter(val,btn){
+  cuisineFilter=val;
+  document.querySelectorAll('.filter-chip').forEach(function(b){b.classList.toggle('active',b.dataset.cuisine===val);});
+  renderMenuTable();
+}
+
+/* カレンダー */
+function getTodayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function renderDatesCell(dates){
+  if(!dates||!dates.length)return '<span style="color:var(--muted2)">—</span>';
+  var ts=getTodayStr(), hasT=dates.indexOf(ts)!==-1;
+  var lbl=dates.slice(0,2).map(function(d){return d.substring(5).replace('-','/');}).join(', ');
+  if(dates.length>2)lbl+=' +'+(dates.length-2);
+  return '<span style="color:'+(hasT?'var(--primary)':'var(--muted)')+(hasT?';font-weight:700':'')+'">'+ lbl+'</span>';
+}
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function renderCalendar(){
+  var el=document.getElementById('cal-grid'), lbl=document.getElementById('cal-month-label');
+  if(!el||!lbl)return;
+  var ms=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  lbl.textContent=calYear+'年 '+ms[calMonth];
+  var fd=new Date(calYear,calMonth,1).getDay(), dm=new Date(calYear,calMonth+1,0).getDate(), ts=getTodayStr(), html='';
+  for(var i=0;i<fd;i++)html+='<div class="date-picker-cell empty"></div>';
+  for(var d=1;d<=dm;d++){
+    var ds=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var cls='date-picker-cell'+(selectedDates.indexOf(ds)!==-1?' selected':'')+(ds===ts?' today-mark':'');
+    html+='<div class="'+cls+'" onclick="toggleDate(\''+ds+'\')">'+d+'</div>';
+  }
+  el.innerHTML=html;
+}
+function toggleDate(ds){
+  var i=selectedDates.indexOf(ds);
+  if(i===-1){selectedDates.push(ds);selectedDates.sort();}else{selectedDates.splice(i,1);}
+  renderCalendar();renderSelectedDates();
+}
+function removeDate(ds){var i=selectedDates.indexOf(ds);if(i!==-1)selectedDates.splice(i,1);renderCalendar();renderSelectedDates();}
+function renderSelectedDates(){
+  var w=document.getElementById('selected-dates-wrap'); if(!w)return;
+  if(!selectedDates.length){w.innerHTML='<span class="no-dates-label">日付を選択してください</span>';return;}
+  w.innerHTML=selectedDates.map(function(d){var p=d.split('-');return '<span class="selected-date-badge">'+p[1]+'月'+p[2]+'日<button onclick="removeDate(\''+d+'\')">×</button></span>';}).join('');
+}
+
+/* メニューモーダル */
+async function openMenuModal(id){
+  editingMenuId=id; pendingPhotoFile=null; ingList=[]; stepList=[];
+  selectedDates=[]; calYear=new Date().getFullYear(); calMonth=new Date().getMonth();
+  resetForm();
+  if(id){
+    document.getElementById('modal-title-text').textContent='メニュー編集';
+    setLoading(true);
+    try{
+      var m=allMenus.find(function(x){return x.id===id;}); if(m)fillForm(m);
+      ingList=(await sbGet('ingredients','select=*&menu_id=eq.'+encodeURIComponent(id)+'&order=sort_order'))||[];
+      stepList=(await sbGet('steps','select=*&menu_id=eq.'+encodeURIComponent(id)+'&order=step_number'))||[];
+    }catch(e){toast('データ取得失敗: '+e.message,'error');}
+    setLoading(false);
+  }else{
+    document.getElementById('modal-title-text').textContent='新規メニュー登録';
+    addIngredient();addIngredient();addIngredient();addStep();
+  }
+  renderIngEditor();renderStepsEditor();renderCalendar();renderSelectedDates();
+  document.getElementById('menu-modal').classList.add('open');
+}
+function closeMenuModal(){document.getElementById('menu-modal').classList.remove('open');}
+function resetForm(){
+  ['f-id','f-name','f-name-en','f-emoji','f-photo-url'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('f-servings').value='10';
+  document.getElementById('f-cuisine').value='和食';
+  document.getElementById('f-category').value='煮物';
+  document.querySelectorAll('.meal-check-label').forEach(function(l){l.classList.remove('checked');l.querySelector('input').checked=false;});
+  var a=document.getElementById('photo-upload-area');
+  a.classList.remove('has-photo');
+  a.innerHTML='<div class="photo-upload-icon">📷</div><div class="photo-upload-text">クリックして写真をアップロード</div><div class="photo-upload-sub">JPG・PNG・WebP（推奨サイズ: 800×600px）</div>';
+}
+function fillForm(m){
+  document.getElementById('f-id').value=m.id||'';
+  document.getElementById('f-name').value=m.name||'';
+  document.getElementById('f-name-en').value=m.name_en||'';
+  document.getElementById('f-emoji').value=m.emoji||'';
+  document.getElementById('f-servings').value=m.base_servings||10;
+  document.getElementById('f-cuisine').value=m.food_category||'和食';
+  document.getElementById('f-category').value=m.category||'煮物';
+  document.getElementById('f-photo-url').value=m.finish_photo_url||'';
+  if(m.finish_photo_url)previewPhotoUrl(m.finish_photo_url);
+  (m.meal_times||[]).forEach(function(mt){var l=document.querySelector('.meal-check-label[data-meal="'+mt+'"]');if(l){l.classList.add('checked');l.querySelector('input').checked=true;}});
+  selectedDates=m.serve_dates?m.serve_dates.slice():[];
+}
+function toggleMealCheck(label,event){if(event)event.preventDefault();label.classList.toggle('checked');label.querySelector('input').checked=label.classList.contains('checked');}
+function previewPhotoUrl(url){
+  if(!url)return;
+  var a=document.getElementById('photo-upload-area');
+  a.classList.add('has-photo');
+  a.innerHTML='<img src="'+escHtml(url)+'" onerror="this.parentElement.classList.remove(\'has-photo\');this.parentElement.innerHTML=\'<div class=photo-upload-icon>📷</div>\'">';
+}
+function handlePhotoSelect(input){
+  var file=input.files[0]; if(!file)return; pendingPhotoFile=file;
+  var reader=new FileReader();
+  reader.onload=function(e){var a=document.getElementById('photo-upload-area');a.classList.add('has-photo');a.innerHTML='<img src="'+e.target.result+'">';};
+  reader.readAsDataURL(file);
+}
+
+/* 材料エディター */
+function addIngredient(){ingList.push({name:'',name_en:'',amount:0,unit:'g',sort_order:ingList.length});renderIngEditor();}
+function removeIngredient(idx){ingList.splice(idx,1);renderIngEditor();}
+function renderIngEditor(){
+  document.getElementById('ing-editor').innerHTML=ingList.map(function(ing,i){
+    return '<div class="ing-row-edit">'+
+      '<input placeholder="材料名（例：じゃがいも）" value="'+escHtml(ing.name||'')+'" oninput="ingList['+i+'].name=this.value">'+
+      '<input placeholder="量" type="number" value="'+(ing.amount||'')+'" oninput="ingList['+i+'].amount=parseFloat(this.value)||0">'+
+      '<input placeholder="単位" value="'+escHtml(ing.unit||'')+'" oninput="ingList['+i+'].unit=this.value">'+
+      '<button class="ing-remove-btn" onclick="removeIngredient('+i+')">✕</button></div>';
+  }).join('');
+}
+
+/* 工程エディター */
+function addStep(){stepList.push({step_number:stepList.length+1,step_type:'default',description:'',description_en:'',photo_url:'',timer_minutes:null,sc_mode:null,sc_mode_label:null,sc_temperature:null,sc_timer_minutes:null,_sc_enabled:false});renderStepsEditor();}
+function removeStep(idx){stepList.splice(idx,1);stepList.forEach(function(s,i){s.step_number=i+1;});renderStepsEditor();}
+function renderStepsEditor(){
+  document.getElementById('steps-editor').innerHTML=stepList.map(function(step,i){
+    var scOn=step._sc_enabled||step.sc_mode;
+    return '<div class="step-card">'+
+      '<div class="step-card-header" onclick="toggleStepCard('+i+')">'+
+        '<div class="step-num-badge">'+step.step_number+'</div>'+
+        '<div class="step-card-title">'+(step.description?escHtml(step.description.substring(0,40)):'STEP '+step.step_number+' — クリックして編集')+'</div>'+
+        '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeStep('+i+')">削除</button>'+
+      '</div>'+
+      '<div class="step-card-body" id="step-body-'+i+'">'+
+        '<div class="form-group step-full"><label class="form-label">作業種別</label>'+
+          '<select class="form-select" onchange="stepList['+i+'].step_type=this.value">'+stepTypeOptions(step.step_type)+'</select></div>'+
+        '<div class="form-group step-full"><label class="form-label">工程説明（日本語）<span class="required">*</span></label>'+
+          '<textarea class="form-textarea" oninput="stepList['+i+'].description=this.value">'+escHtml(step.description||'')+'</textarea></div>'+
+        '<div class="form-group step-full"><label class="form-label">工程説明（英語）</label>'+
+          '<textarea class="form-textarea" oninput="stepList['+i+'].description_en=this.value">'+escHtml(step.description_en||'')+'</textarea></div>'+
+        '<div class="form-group"><label class="form-label">タイマー（分）</label>'+
+          '<input class="form-input" type="number" min="0" placeholder="なし" value="'+(step.timer_minutes||'')+'" oninput="stepList['+i+'].timer_minutes=parseFloat(this.value)||null"></div>'+
+        '<div class="form-group"><label class="form-label">工程写真URL</label>'+
+          '<input class="form-input" placeholder="https://..." value="'+escHtml(step.photo_url||'')+'" oninput="stepList['+i+'].photo_url=this.value"></div>'+
+        '<div class="step-full">'+
+          '<div class="steamcon-toggle">'+
+            '<button class="toggle-switch '+(scOn?'on':'')+'" id="sc-toggle-'+i+'" onclick="toggleSteamcon('+i+')"></button>'+
+            '<span class="toggle-label">🌡️ スチコン設定</span>'+
+          '</div>'+
+          '<div class="steamcon-fields" id="sc-fields-'+i+'" style="'+(scOn?'':'display:none')+'">'+
+            '<div class="form-group"><label class="form-label">モード</label>'+
+              '<select class="form-select" onchange="stepList['+i+'].sc_mode=this.value">'+
+                '<option value="steam"'+(step.sc_mode==='steam'?' selected':'')+'>💨 スチーム</option>'+
+                '<option value="combi"'+(step.sc_mode==='combi'?' selected':'')+'>🌀 コンビ</option>'+
+                '<option value="hot_air"'+(step.sc_mode==='hot_air'?' selected':'')+'>🔥 ホットエアー</option>'+
+              '</select></div>'+
+            '<div class="form-group"><label class="form-label">温度（℃）</label>'+
+              '<input class="form-input" type="number" value="'+(step.sc_temperature||160)+'" oninput="stepList['+i+'].sc_temperature=parseInt(this.value)||null"></div>'+
+            '<div class="form-group"><label class="form-label">タイマー（分）</label>'+
+              '<input class="form-input" type="number" value="'+(step.sc_timer_minutes||20)+'" oninput="stepList['+i+'].sc_timer_minutes=parseInt(this.value)||null"></div>'+
+          '</div>'+
+        '</div>'+
+      '</div></div>';
+  }).join('');
+}
+function stepTypeOptions(c){
+  return [['cut','🔪 切る'],['fry','🍳 炒める'],['mix','🥄 混ぜる'],['boil','♨️ 茹でる'],['simmer','🫕 煮込む'],
+          ['bake','🔥 焼く'],['steam_con','🌡️ スチコン'],['steam','💨 蒸す'],['plate','🍽️ 盛り付け'],
+          ['season','🧂 調味'],['cool','❄️ 冷ます'],['prep','👐 下準備'],['ccp_temp','🌡️ CCP：温度管理'],['default','👨‍🍳 その他']]
+    .map(function(t){return '<option value="'+t[0]+'"'+(c===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('');
+}
+function toggleStepCard(i){var b=document.getElementById('step-body-'+i);if(b)b.style.display=b.style.display==='none'?'':'none';}
+function toggleSteamcon(i){
+  var isOn=!(stepList[i]._sc_enabled||stepList[i].sc_mode);
+  stepList[i]._sc_enabled=isOn;
+  if(!isOn){stepList[i].sc_mode=null;stepList[i].sc_temperature=null;stepList[i].sc_timer_minutes=null;}
+  document.getElementById('sc-toggle-'+i).classList.toggle('on',isOn);
+  var f=document.getElementById('sc-fields-'+i); if(f)f.style.display=isOn?'':'none';
+}
+
+/* 保存 */
+async function saveMenu(){
+  var rawId=document.getElementById('f-id').value.trim();
+  var id=rawId?(rawId.indexOf('M-')===0?rawId:'M-'+rawId):'';
+  var name=document.getElementById('f-name').value.trim();
+  if(!id||!name){toast('IDとメニュー名は必須です','error');return;}
+  var nameEn=document.getElementById('f-name-en').value.trim();
+  var emoji=document.getElementById('f-emoji').value.trim();
+  var servings=parseInt(document.getElementById('f-servings').value)||10;
+  var cuisine=document.getElementById('f-cuisine').value;
+  var category=document.getElementById('f-category').value;
+  var photoUrl=document.getElementById('f-photo-url').value.trim();
+  var meals=[];
+  document.querySelectorAll('.meal-check-label.checked input').forEach(function(inp){meals.push(inp.value);});
+  var btn=document.getElementById('save-btn');
+  btn.innerHTML='<div class="spinner-inline"></div> 保存中...'; btn.disabled=true;
+  setLoading(true);
+  try{
+    if(pendingPhotoFile){try{photoUrl=await uploadPhoto(pendingPhotoFile);}catch(e){toast('写真アップロード失敗。URLを入力してください。','warning');}}
+    var data={id:id,name:name,name_en:nameEn||null,emoji:emoji||'🍽️',food_category:cuisine,category:category,base_servings:servings,finish_photo_url:photoUrl||null,serve_dates:selectedDates.length?selectedDates:null,is_today:selectedDates.indexOf(getTodayStr())!==-1,meal_times:meals.length?meals:null};
+    if(editingMenuId){await sbUpdate('menus',editingMenuId,data);await sbDeleteWhere('ingredients','menu_id',editingMenuId);await sbDeleteWhere('steps','menu_id',editingMenuId);}
+    else{await sbInsert('menus',data);}
+    var vi=ingList.filter(function(x){return x.name.trim();});
+    for(var i=0;i<vi.length;i++)await sbInsert('ingredients',{id:id+'_I'+String(i+1).padStart(3,'0'),menu_id:id,name:vi[i].name,name_en:vi[i].name_en||null,amount:vi[i].amount||0,unit:vi[i].unit||'g',sort_order:i});
+    for(var j=0;j<stepList.length;j++){var s=stepList[j],sc=s._sc_enabled?s.sc_mode:(s.sc_mode||null);await sbInsert('steps',{id:id+'_S'+String(j+1).padStart(3,'0'),menu_id:id,step_number:j+1,step_type:s.step_type||'default',description:s.description||'',description_en:s.description_en||null,photo_url:s.photo_url||null,timer_minutes:s.timer_minutes||null,sc_mode:sc,sc_mode_label:sc?(s.sc_mode_label||sc):null,sc_temperature:sc?(s.sc_temperature||null):null,sc_timer_minutes:sc?(s.sc_timer_minutes||null):null});}
+    toast((editingMenuId?'更新':'登録')+'しました: '+name+' ✅');
+    closeMenuModal(); await loadDashboard();
+  }catch(e){toast('保存失敗: '+e.message,'error');}
+  btn.innerHTML='💾 保存する'; btn.disabled=false; setLoading(false);
+}
+
+/* 削除 */
+function openDeleteModal(id,name){deleteTargetId=id;document.getElementById('delete-menu-name').textContent=name;document.getElementById('delete-modal').classList.add('open');}
+function closeDeleteModal(){document.getElementById('delete-modal').classList.remove('open');deleteTargetId=null;}
+async function confirmDelete(){
+  if(!deleteTargetId)return; setLoading(true);
+  try{await sbDeleteWhere('ingredients','menu_id',deleteTargetId);await sbDeleteWhere('steps','menu_id',deleteTargetId);await sbDelete('menus',deleteTargetId);toast('削除しました ✅');closeDeleteModal();await loadDashboard();}
+  catch(e){toast('削除失敗: '+e.message,'error');}
+  setLoading(false);
+}
+
+/* ページ切り替え */
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(function(b){b.classList.remove('active');});
+  if(btn)btn.classList.add('active');
+  if(id==='menus')renderMenuTable();
+}
+
+/* ユーティリティ */
+function setLoading(on){
+  var bar=document.getElementById('loading-bar');
+  bar.className='loading-bar'+(on?' active':' done');
+  if(!on)setTimeout(function(){bar.className='loading-bar';},600);
+}
+function toast(msg,type){
+  var c=document.getElementById('toast-container'),el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.innerHTML='<span>'+({error:'❌',warning:'⚠️'}[type]||'✅')+'</span><span>'+escHtml(msg)+'</span>';
+  c.appendChild(el); setTimeout(function(){el.remove();},3500);
+}
+function esc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+window.addEventListener('DOMContentLoaded',loadConfig);
+</script>
+
+<script>
+/* ============================================================
+   ログイン処理
+   ============================================================ */
+var ADMIN_PASSWORD = 'uni2026';   /* ← パスワードをここで変更 */
+var SESSION_KEY    = 'uni_admin_auth';
+
+function doLogin() {
+  var pw  = document.getElementById('login-pw').value;
+  var err = document.getElementById('login-error');
+  if (pw === ADMIN_PASSWORD) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-body').style.display   = 'block';
+    err.textContent = '';
+  } else {
+    err.textContent = '❌ パスワードが違います';
+    document.getElementById('login-pw').value = '';
+    document.getElementById('login-pw').focus();
+  }
+}
+
+/* ページ読み込み時にセッション確認 */
+(function() {
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-body').style.display   = 'block';
+    });
+  }
+})();
+</script>
+</body>
+</html>
