@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- v20260308-3 -->
+<!-- v20260308-4 -->
 <title>Uni献立ナビ 管理画面</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
 <style>
@@ -25,6 +25,17 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ============ 工程並べ替えボタン ============ */
+.btn-step-order {
+  width:32px; height:32px; border-radius:7px;
+  background:var(--card2); border:1.5px solid var(--border2);
+  color:var(--primary); font-size:13px; font-weight:700;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all 0.15s; line-height:1;
+}
+.btn-step-order:hover:not(:disabled) { background:var(--primary-light); border-color:var(--primary3); }
+.btn-step-order:disabled { opacity:0.25; cursor:default; }
 
 /* ============ 工程写真アップロード ============ */
 .step-photo-upload {
@@ -51,7 +62,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
   border:1.5px solid var(--border2); border-radius:8px;
   font-size:12px; outline:none; box-sizing:border-box;
 }
-
 
 #login-screen {
   position:fixed; inset:0; z-index:9999;
@@ -265,8 +275,6 @@ tr:hover td{background:var(--bg);}
   .modal-footer { padding: 12px !important; flex-direction: column !important; gap: 8px !important; }
   .modal-footer .btn { width: 100% !important; justify-content: center !important; }
   .cal-day { width: 34px !important; height: 34px !important; font-size: 11px !important; }
-
-  /* テーブル → カード形式 */
   .table-card { overflow: visible !important; }
   .table-toolbar { flex-wrap: wrap !important; gap: 6px !important; }
   .table-toolbar > div:last-child { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; }
@@ -808,16 +816,66 @@ function renderIngEditor(){
   }).join('');
 }
 
-/* 工程エディター */
-function addStep(){stepList.push({step_number:stepList.length+1,step_type:'default',description:'',description_en:'',photo_url:'',timer_minutes:null,sc_mode:null,sc_mode_label:null,sc_temperature:null,sc_timer_minutes:null,_sc_enabled:false});renderStepsEditor();}
-function removeStep(idx){stepList.splice(idx,1);stepList.forEach(function(s,i){s.step_number=i+1;});renderStepsEditor();}
+/* ============================================================
+   工程エディター（順番入れ替えボタン付き）
+   ============================================================ */
+function addStep(){
+  stepList.push({
+    step_number: stepList.length+1,
+    step_type: 'default',
+    description: '',
+    description_en: '',
+    photo_url: '',
+    timer_minutes: null,
+    sc_mode: null, sc_mode_label: null, sc_temperature: null, sc_timer_minutes: null,
+    _sc_enabled: false
+  });
+  renderStepsEditor();
+}
+
+function removeStep(idx){
+  stepList.splice(idx,1);
+  stepList.forEach(function(s,i){s.step_number=i+1;});
+  renderStepsEditor();
+}
+
+/* ▲ 上に移動 */
+function moveStepUp(idx){
+  if(idx<=0) return;
+  var tmp=stepList[idx-1];
+  stepList[idx-1]=stepList[idx];
+  stepList[idx]=tmp;
+  stepList.forEach(function(s,i){s.step_number=i+1;});
+  renderStepsEditor();
+  /* 移動後のカードを開いたままにする */
+  var body=document.getElementById('step-body-'+(idx-1));
+  if(body) body.style.display='';
+}
+
+/* ▼ 下に移動 */
+function moveStepDown(idx){
+  if(idx>=stepList.length-1) return;
+  var tmp=stepList[idx+1];
+  stepList[idx+1]=stepList[idx];
+  stepList[idx]=tmp;
+  stepList.forEach(function(s,i){s.step_number=i+1;});
+  renderStepsEditor();
+  var body=document.getElementById('step-body-'+(idx+1));
+  if(body) body.style.display='';
+}
+
 function renderStepsEditor(){
   document.getElementById('steps-editor').innerHTML=stepList.map(function(step,i){
     var scOn=step._sc_enabled||step.sc_mode;
+    var isFirst=(i===0), isLast=(i===stepList.length-1);
     return '<div class="step-card">'+
       '<div class="step-card-header" onclick="toggleStepCard('+i+')">'+
         '<div class="step-num-badge">'+step.step_number+'</div>'+
         '<div class="step-card-title">'+(step.description?escHtml(step.description.substring(0,40)):'STEP '+step.step_number+' — クリックして編集')+'</div>'+
+        /* ▲ 上へ移動ボタン */
+        '<button class="btn-step-order" title="上へ移動" onclick="event.stopPropagation();moveStepUp('+i+')"'+(isFirst?' disabled':'')+'>▲</button>'+
+        /* ▼ 下へ移動ボタン */
+        '<button class="btn-step-order" title="下へ移動" onclick="event.stopPropagation();moveStepDown('+i+')"'+(isLast?' disabled':'')+'>▼</button>'+
         '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeStep('+i+')">削除</button>'+
       '</div>'+
       '<div class="step-card-body" id="step-body-'+i+'">'+
@@ -865,6 +923,7 @@ function renderStepsEditor(){
       '</div></div>';
   }).join('');
 }
+
 function stepTypeOptions(c){
   return [['cut','🔪 切る'],['fry','🍳 炒める'],['mix','🥄 混ぜる'],['boil','♨️ 茹でる'],['simmer','🫕 煮込む'],
           ['bake','🔥 焼く'],['steam_con','🌡️ スチコン'],['steam','💨 蒸す'],['plate','🍽️ 盛り付け'],
@@ -874,10 +933,9 @@ function stepTypeOptions(c){
 function toggleStepCard(i){var b=document.getElementById('step-body-'+i);if(b)b.style.display=b.style.display==='none'?'':'none';}
 
 /* 工程写真ウィジェット */
-var stepPhotoFiles = {}; /* index → File */
+var stepPhotoFiles = {};
 
 function stepPhotoAreaClick(e, i) {
-  /* ボタン以外のエリアをクリックしたときはファイル選択 */
   if (e.target.tagName !== 'BUTTON') {
     document.getElementById('step-photo-file-' + i).click();
   }
@@ -896,13 +954,8 @@ function handleStepPhotoFile(input, i) {
     }
   };
   reader.readAsDataURL(file);
-  /* URLフィールドはクリア（アップロード後に更新される） */
-  var urlInput = input.closest('.form-group, .step-full') && input.parentElement.querySelector('.step-photo-url-input');
-  if (!urlInput) {
-    /* fallback: find by sibling traversal */
-    var allInputs = document.querySelectorAll('.step-photo-url-input');
-    if (allInputs[i]) allInputs[i].value = '';
-  }
+  var allInputs = document.querySelectorAll('.step-photo-url-input');
+  if (allInputs[i]) allInputs[i].value = '';
 }
 
 function previewStepPhoto(i, url) {
@@ -961,13 +1014,12 @@ async function saveMenu(){
     for(var j=0;j<stepList.length;j++){
       var s=stepList[j],sc=s._sc_enabled?s.sc_mode:(s.sc_mode||null);
       var stepPhotoUrl = s.photo_url || null;
-      /* 工程写真ファイルがあればアップロード */
       if (stepPhotoFiles[j]) {
         try { stepPhotoUrl = await uploadPhoto(stepPhotoFiles[j], 'step-photos'); } catch(e) { /* URL維持 */ }
       }
       await sbInsert('steps',{id:id+'_S'+String(j+1).padStart(3,'0'),menu_id:id,step_number:j+1,step_type:s.step_type||'default',description:s.description||'',description_en:s.description_en||null,photo_url:stepPhotoUrl,timer_minutes:s.timer_minutes||null,sc_mode:sc,sc_mode_label:sc?(s.sc_mode_label||sc):null,sc_temperature:sc?(s.sc_temperature||null):null,sc_timer_minutes:sc?(s.sc_timer_minutes||null):null});
     }
-    stepPhotoFiles = {}; /* 保存後クリア */
+    stepPhotoFiles = {};
     toast((editingMenuId?'更新':'登録')+'しました: '+name+' ✅');
     closeMenuModal(); await loadDashboard();
   }catch(e){toast('保存失敗: '+e.message,'error');}
@@ -1009,14 +1061,13 @@ function esc(s){return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 window.addEventListener('DOMContentLoaded',loadConfig);
-
 </script>
 
 <script>
 /* ============================================================
    ログイン処理
    ============================================================ */
-var ADMIN_PASSWORD = 'uni2026';   /* ← パスワードをここで変更 */
+var ADMIN_PASSWORD = 'uni2026';
 var SESSION_KEY    = 'uni_admin_auth';
 
 function doLogin() {
@@ -1036,19 +1087,14 @@ function doLogin() {
   }
 }
 
-/* モバイルレイアウト強制適用 */
 function fixMobileLayout() {
   var isMobile = window.innerWidth <= 768;
   var topbar   = document.getElementById('mobile-topbar');
   var sidebar  = document.querySelector('.sidebar');
   var layout   = document.querySelector('.layout');
-
   if (isMobile) {
-    /* モバイルトップバーを表示 */
     if (topbar)  { topbar.style.display  = 'flex'; }
-    /* サイドバーを完全非表示 */
     if (sidebar) { sidebar.style.display = 'none'; }
-    /* レイアウトを1列に */
     if (layout)  { layout.style.cssText  = 'display:block!important;'; }
   } else {
     if (topbar)  { topbar.style.display  = 'none'; }
@@ -1066,7 +1112,6 @@ function setMobileActive(btn) {
   btn.style.color = '#fff';
 }
 
-/* ページ読み込み時にセッション確認 */
 (function() {
   if (sessionStorage.getItem(SESSION_KEY) === '1') {
     document.addEventListener('DOMContentLoaded', function() {
