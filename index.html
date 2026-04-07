@@ -500,58 +500,69 @@
 
       <div class="current-step-label">▶ 現在の工程 / CURRENT STEP</div>
 
-      <div class="step-row-top">
-        <div class="step-type-icon" id="step-type-icon">👨‍🍳</div>
-        <div class="step-photo-box" id="step-photo-box">
-          <div class="step-photo-empty">
-            <span>📷</span>
-            <span class="step-photo-empty-text">No Photo</span>
+      <!-- 横並びレイアウト: 左側（写真）+ 右側（説明文など） -->
+      <div class="step-horizontal-layout">
+        
+        <!-- 左側: 写真エリア -->
+        <div class="step-left-photo-area">
+          <div class="step-type-icon" id="step-type-icon">👨‍🍳</div>
+          <div class="step-photo-box" id="step-photo-box">
+            <div class="step-photo-empty">
+              <span>📷</span>
+              <span class="step-photo-empty-text">No Photo</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="step-desc-card" style="padding:14px 16px 10px; background:linear-gradient(135deg,#F0FAF4,#E8F4EC); border-radius:12px; margin:12px 16px 0; border-left:4px solid #2D6A4F;">
-        <div class="step-desc-main" id="step-desc-main" style="font-size:20px; font-weight:900; color:#1A2E23; line-height:1.5; letter-spacing:0.02em;"></div>
-        <div class="step-desc-en" id="step-desc-en" style="font-size:13px; color:#52B788; margin-top:6px; font-weight:600;"></div>
-      </div>
-
-      <div class="step-ing-section" id="step-ing-section">
-        <div class="step-section-label">🥦 使用材料 / Ingredients</div>
-        <div class="step-ing-grid" id="step-ing-grid"></div>
-      </div>
-
-      <div class="steamcon-panel" id="step-steamcon" style="display:none">
-        <div class="steamcon-header">
-          <span>🌡️</span>
-          <span class="steamcon-header-text">スチコン設定 / STEAM CONVECTION</span>
-        </div>
-        <div class="steamcon-grid">
-          <div class="steamcon-item">
-            <div class="steamcon-item-icon">🌡️</div>
-            <div class="steamcon-item-val" id="sc-temp">—</div>
-            <div class="steamcon-item-key">℃</div>
+        <!-- 右側: 説明エリア -->
+        <div class="step-right-content-area">
+          
+          <div class="step-desc-card" style="padding:14px 16px 10px; background:linear-gradient(135deg,#F0FAF4,#E8F4EC); border-radius:12px; border-left:4px solid #2D6A4F;">
+            <div class="step-desc-main" id="step-desc-main" style="font-size:20px; font-weight:900; color:#1A2E23; line-height:1.5; letter-spacing:0.02em;"></div>
+            <div class="step-desc-en" id="step-desc-en" style="font-size:13px; color:#52B788; margin-top:6px; font-weight:600;"></div>
           </div>
-          <div class="steamcon-item">
-            <div class="steamcon-item-icon" id="sc-mode-icon">⚙️</div>
-            <div class="steamcon-item-val" id="sc-mode-val">—</div>
-            <div class="steamcon-item-key">MODE</div>
-          </div>
-          <div class="steamcon-item">
-            <div class="steamcon-item-icon">⏱️</div>
-            <div class="steamcon-item-val" id="sc-timer-val">—</div>
-            <div class="steamcon-item-key">MIN</div>
-          </div>
-        </div>
-      </div>
 
-      <div class="timer-hint-row" id="timer-hint-row" style="display:none">
-        <span class="timer-hint-icon">⏱️</span>
-        <div>
-          <div class="timer-hint-label">タイマー / TIMER</div>
-          <div class="timer-hint-val" id="timer-hint-val">00:00</div>
-        </div>
-        <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
-      </div>
+          <div class="step-ing-section" id="step-ing-section">
+            <div class="step-section-label">🥦 使用材料 / Ingredients</div>
+            <div class="step-ing-grid" id="step-ing-grid"></div>
+          </div>
+
+          <div class="steamcon-panel" id="step-steamcon" style="display:none">
+            <div class="steamcon-header">
+              <span>🌡️</span>
+              <span class="steamcon-header-text">スチコン設定 / STEAM CONVECTION</span>
+            </div>
+            <div class="steamcon-grid">
+              <div class="steamcon-item">
+                <div class="steamcon-item-icon">🌡️</div>
+                <div class="steamcon-item-val" id="sc-temp">—</div>
+                <div class="steamcon-item-key">℃</div>
+              </div>
+              <div class="steamcon-item">
+                <div class="steamcon-item-icon" id="sc-mode-icon">⚙️</div>
+                <div class="steamcon-item-val" id="sc-mode-val">—</div>
+                <div class="steamcon-item-key">MODE</div>
+              </div>
+              <div class="steamcon-item">
+                <div class="steamcon-item-icon">⏱️</div>
+                <div class="steamcon-item-val" id="sc-timer-val">—</div>
+                <div class="steamcon-item-key">MIN</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="timer-hint-row" id="timer-hint-row" style="display:none">
+            <span class="timer-hint-icon">⏱️</span>
+            <div>
+              <div class="timer-hint-label">タイマー / TIMER</div>
+              <div class="timer-hint-val" id="timer-hint-val">00:00</div>
+            </div>
+            <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
+          </div>
+
+        </div><!-- /step-right-content-area -->
+
+      </div><!-- /step-horizontal-layout -->
 
     </div><!-- /current-step-block -->
 
