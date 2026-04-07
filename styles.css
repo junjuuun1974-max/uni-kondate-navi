@@ -1,5 +1,5 @@
 /*
- * styles.css - Uni献立ナビ v4
+ * styles.css - Uni献立ナビ v2
  * テーマ: 健康・食事・自然 / Fresh Green & Warm White
  * iPad Safari (iOS 15+) 対応
  */
@@ -841,16 +841,36 @@ img { display: block; max-width: 100%; }
   min-height: 0;
 }
 
-/* 行1: 作業アイコン + 工程写真 */
+/* 行1: 作業アイコン + 工程写真（旧レイアウト・下位互換用） */
 .step-row-top {
   display: flex; gap: 9px; flex-shrink: 0; align-items: stretch;
+}
+
+/* 新レイアウト: 横並び（左:写真、右:説明文） */
+.step-horizontal-layout {
+  display: flex; gap: 16px; flex-shrink: 0; align-items: stretch;
+}
+
+/* 左側: 写真エリア */
+.step-left-photo-area {
+  width: 45%; /* 左側を45%に */
+  display: flex; flex-direction: column; gap: 10px;
+  flex-shrink: 0;
+}
+
+/* 右側: 説明エリア */
+.step-right-content-area {
+  flex: 1; /* 残りのスペースを使用 */
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; /* 内容が多い場合はスクロール可能 */
+  min-width: 0; /* flexアイテムのオーバーフロー対策 */
 }
 
 .step-type-icon {
   font-size: 40px; line-height: 1;
   background-color: var(--primary-light);
   border-radius: var(--radius-sm);
-  width: 68px; flex-shrink: 0;
+  height: 68px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border2);
 }
@@ -861,7 +881,7 @@ img { display: block; max-width: 100%; }
   border-radius: var(--radius-sm);
   overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  min-height: 72px; max-height: 110px;
+  min-height: 200px; /* 左側にスペースがあるので写真を大きく */
   border: 1px solid var(--border);
 }
 
@@ -888,9 +908,9 @@ img { display: block; max-width: 100%; }
 
 .step-desc-main {
   font-size: 16px; font-weight: 700; line-height: 1.6; color: var(--text);
-  /* 3行超えたらトリミング */
+  /* 横並びレイアウトでは制限を緩和 */
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 6; /* 3行から6行に増やす */
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -898,7 +918,7 @@ img { display: block; max-width: 100%; }
 .step-desc-en {
   font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4; /* 2行から4行に増やす */
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -912,7 +932,7 @@ img { display: block; max-width: 100%; }
 }
 
 .step-ing-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; /* 3列から2列に */
 }
 
 .step-ing-card {
