@@ -500,34 +500,38 @@
 
       <div class="current-step-label">▶ 現在の工程 / CURRENT STEP</div>
 
-      <!-- 横並びレイアウト: 左側（写真）+ 右側（説明文など） -->
-      <div class="step-horizontal-layout">
-        
-        <!-- 左側: 写真エリア -->
-        <div class="step-left-photo-area">
-          <div class="step-type-icon" id="step-type-icon">👨‍🍳</div>
-          <div class="step-photo-box" id="step-photo-box">
+      <!-- 左右2カラム: 写真6 / 説明4 -->
+      <div style="display:flex; gap:0; align-items:stretch; min-height:240px;">
+
+        <!-- 左: 写真 (6/10) -->
+        <div style="flex:6; min-width:0; position:relative;">
+          <div id="step-photo-box" style="width:100%; height:100%; min-height:240px; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:0;">
             <div class="step-photo-empty">
               <span>📷</span>
               <span class="step-photo-empty-text">No Photo</span>
             </div>
           </div>
+          <!-- 非表示にするがJSで参照されるため残す -->
+          <div id="step-type-icon" style="display:none;"></div>
         </div>
 
-        <!-- 右側: 説明エリア -->
-        <div class="step-right-content-area">
-          
-          <div class="step-desc-card" style="padding:14px 16px 10px; background:linear-gradient(135deg,#F0FAF4,#E8F4EC); border-radius:12px; border-left:4px solid #2D6A4F;">
-            <div class="step-desc-main" id="step-desc-main" style="font-size:20px; font-weight:900; color:#1A2E23; line-height:1.5; letter-spacing:0.02em;"></div>
-            <div class="step-desc-en" id="step-desc-en" style="font-size:13px; color:#52B788; margin-top:6px; font-weight:600;"></div>
+        <!-- 右: 説明 (4/10) -->
+        <div style="flex:4; min-width:0; display:flex; flex-direction:column; gap:0; background:linear-gradient(160deg,#F0FAF4,#E4F4EC); border-left:4px solid #2D6A4F; padding:16px 16px 12px; overflow-y:auto;">
+
+          <!-- 説明文 -->
+          <div style="flex:1;">
+            <div id="step-desc-main" style="font-size:18px; font-weight:900; color:#1A2E23; line-height:1.55; letter-spacing:0.02em;"></div>
+            <div id="step-desc-en" style="font-size:12px; color:#52B788; margin-top:8px; font-weight:600; line-height:1.5;"></div>
           </div>
 
-          <div class="step-ing-section" id="step-ing-section">
+          <!-- 材料 -->
+          <div class="step-ing-section" id="step-ing-section" style="margin-top:12px;">
             <div class="step-section-label">🥦 使用材料 / Ingredients</div>
-            <div class="step-ing-grid" id="step-ing-grid"></div>
+            <div class="step-ing-grid" id="step-ing-grid" style="grid-template-columns:repeat(2,1fr);"></div>
           </div>
 
-          <div class="steamcon-panel" id="step-steamcon" style="display:none">
+          <!-- スチコン -->
+          <div class="steamcon-panel" id="step-steamcon" style="display:none; margin-top:10px;">
             <div class="steamcon-header">
               <span>🌡️</span>
               <span class="steamcon-header-text">スチコン設定 / STEAM CONVECTION</span>
@@ -551,7 +555,8 @@
             </div>
           </div>
 
-          <div class="timer-hint-row" id="timer-hint-row" style="display:none">
+          <!-- タイマー予告 -->
+          <div class="timer-hint-row" id="timer-hint-row" style="display:none; margin-top:10px;">
             <span class="timer-hint-icon">⏱️</span>
             <div>
               <div class="timer-hint-label">タイマー / TIMER</div>
@@ -560,9 +565,8 @@
             <div class="timer-hint-note">完了後スタート<br>Auto-starts</div>
           </div>
 
-        </div><!-- /step-right-content-area -->
-
-      </div><!-- /step-horizontal-layout -->
+        </div><!-- /右カラム -->
+      </div><!-- /2カラム -->
 
     </div><!-- /current-step-block -->
 
