@@ -760,7 +760,7 @@ async function openMenuModal(id){
     setLoading(false);
   }else{
     document.getElementById('modal-title-text').textContent='新規メニュー登録';
-    addIngredient();addIngredient();addIngredient();addStep();
+    for(var k=0;k<10;k++)addIngredient();addStep();
   }
   renderIngEditor();renderStepsEditor();renderCalendar();renderSelectedDates();
   document.getElementById('menu-modal').classList.add('open');
